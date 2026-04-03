@@ -51,6 +51,7 @@ export async function register(req, res) {
         email: newUser.email,
         phone: newUser.phone,
       },
+      token
     });
   } catch (error) {
     console.log("REGISTER ERROR 👉", error.message);
@@ -132,6 +133,28 @@ export const getMe = async (req, res) => {
     });
   } catch (error) {
     console.log("GET ME ERROR 👉", error.message);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+/** Clears the httpOnly JWT cookie set on register/login (same options as res.cookie). */
+export const logout = (req, res) => {
+  try {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+    });
+
+    return res.status(200).json({
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.log("LOGOUT ERROR 👉", error.message);
 
     return res.status(500).json({
       message: "Internal server error",

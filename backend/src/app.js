@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import cookieParser from 'cookie-parser';
-import userRouter from './routes/user.route.js';
+import { connectDB } from './config/db.js';
+import userRouter from './routes/user.route.js'
 
 import contactsRouter from './routes/contacts.routes.js';
 import sosRouter from './routes/sos.routes.js';
@@ -10,12 +10,11 @@ import dashboardRouter from './routes/dashboard.routes.js';
 
 const app = express();
 
-const corsOptions = {
-  origin: process.env.CLIENT_ORIGIN || true,
-  credentials: true,
-};
+// DB connection
+connectDB();
 
-app.use(cors(corsOptions));
+// ── Core Middleware ──────────────────────────────────────────────────────────
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -24,6 +23,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'Veera Backend API is running' });
 });
 
+// ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/contacts', contactsRouter);
 app.use('/api/sos', sosRouter);
 app.use('/api/risk-score', riskRouter);
@@ -42,4 +42,9 @@ app.use((err, req, res, next) => {
   });
 });
 
+
+//api of auth
+app.use('/api/auth',userRouter)
+
+>>>>>>> 556c257d73276443a0a738a543b1d15a504f7202
 export default app;

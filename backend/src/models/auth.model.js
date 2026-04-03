@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true
     }
-})
+});
 
 const UserModel = mongoose.model("User", userSchema)
 
