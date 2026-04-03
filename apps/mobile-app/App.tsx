@@ -24,10 +24,9 @@
 import './src/tasks/backgroundTasks';
 
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,42 +105,61 @@ function OnboardingScreen({ navigation }: { navigation: NativeStackNavigationPro
   return (
     <KeyboardAvoidingView
       style={styles.onboardingRoot}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.onboardingContent}>
-        {/* Logo */}
-        <View style={styles.logoRow}>
-          <Ionicons name="shield" size={42} color={COLORS.primary} />
-          <Text style={styles.appName}>VEERA</Text>
-        </View>
-        <Text style={styles.appTagline}>Your personal safety companion</Text>
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1 }} 
+        keyboardShouldPersistTaps="handled" 
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.onboardingContent}>
+          {/* Logo */}
+          <View style={styles.logoRow}>
+            <Ionicons name="shield" size={42} color={COLORS.primary} />
+            <Text style={styles.appName}>VEERA</Text>
+          </View>
+          <Text style={styles.appTagline}>Your personal safety companion</Text>
 
-        {/* Input */}
-        <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Hi! What's your name?</Text>
-          <TextInput
-            style={[styles.input, error ? styles.inputErr : null]}
-            placeholder="Enter your full name"
-            placeholderTextColor={COLORS.textMuted}
-            value={name}
-            onChangeText={(t) => { setName(t); setError(''); }}
-            autoCapitalize="words"
-            returnKeyType="done"
-            onSubmitEditing={handleProceed}
-          />
-          {error ? <Text style={styles.errText}>{error}</Text> : null}
-          <TouchableOpacity style={styles.proceedBtn} onPress={handleProceed}>
-            <Text style={styles.proceedText}>Get Started →</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Input */}
+          <View style={styles.inputCard}>
+            <Text style={styles.inputLabel}>Hi! What's your name?</Text>
+            <TextInput
+              style={[styles.input, error ? styles.inputErr : null]}
+              placeholder="Enter your full name"
+              placeholderTextColor={COLORS.textMuted}
+              value={name}
+              onChangeText={(t) => { setName(t); setError(''); }}
+              autoCapitalize="words"
+              returnKeyType="done"
+              onSubmitEditing={handleProceed}
+            />
+            {error ? <Text style={styles.errText}>{error}</Text> : null}
+            <TouchableOpacity style={styles.proceedBtn} onPress={handleProceed}>
+              <Text style={styles.proceedText}>Get Started →</Text>
+            </TouchableOpacity>
+          </View>
 
-        <Text style={styles.privacyNote}>
-          🔒 Your name is stored only on this device. Veera never shares personal data.
-        </Text>
-      </View>
+          <Text style={styles.privacyNote}>
+            🔒 Your name is stored only on this device. Veera never shares personal data.
+          </Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+import { ActivityIndicator, ScrollView } from 'react-native';
+
+const CustomTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: COLORS.background,
+    card: COLORS.surface,
+    border: COLORS.border,
+    text: COLORS.textPrimary,
+  },
+};
 
 // ─── Root Navigator ────────────────────────────────────────────────────────────
 export default function App() {
@@ -154,12 +172,18 @@ export default function App() {
     });
   }, []);
 
-  if (!initialRoute) return null; // Splash is still showing
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <NavigationContainer>
+      <NavigationContainer theme={CustomTheme}>
         <Stack.Navigator
           initialRouteName={initialRoute}
           screenOptions={{ headerShown: false, animation: 'fade' }}
