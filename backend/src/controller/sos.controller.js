@@ -10,35 +10,34 @@ import { emitSOSNew } from '../services/socket.service.js';
 // POST /api/sos
 const triggerSOS = async (req, res) => {
   try {
-    const { latitude, longitude, is_isolated } = req.body;
+    const { latitude, longitude } = req.body;
 
     if (latitude == null || longitude == null) {
       return res.status(400).json({ success: false, message: 'latitude and longitude are required' });
     }
 
-    const timestamp = new Date().toISOString();
+    // Get current hour for the event
+    const currentHour = new Date().getHours();
 
-    // 1. Get ML risk score (non-blocking fallback built-in)
-    const { risk_score } = await getRiskScore(latitude, longitude, timestamp, is_isolated ?? false);
-
-    // 2. Create SOS event
+    // Create SOS event with new simplified schema
     const sosEvent = await SOSEvent.create({
-      user_id: req.userId,
       latitude,
       longitude,
-      risk_level: risk_score,
-      status: 'active',
-      triggered_at: new Date(),
+      hour: currentHour,
     });
 
-    // 3. Find nearest police station
+    // Find nearest police station
     const stations = await PoliceStation.find();
     const nearest = findNearestStation(latitude, longitude, stations);
 
-    // 4. Get user's emergency contacts
+    // Get user's emergency contacts
     const contacts = await EmergencyContact.find({ user_id: req.userId });
 
-    // 5. Build SMS message
+    // Get ML risk score for additional context
+    const timestamp = new Date().toISOString();
+    const { risk_score } = await getRiskScore(latitude, longitude, timestamp, false);
+
+    // Build SMS message
     const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
     const userMessage = `🚨 VEERA SOS ALERT 🚨\nAn emergency has been triggered.\nLocation: ${mapsLink}\nRisk Level: ${(risk_score * 100).toFixed(0)}%`;
 
@@ -46,7 +45,7 @@ const triggerSOS = async (req, res) => {
       ? `🚨 SOS ALERT\nUser at ${mapsLink}\nRisk: ${(risk_score * 100).toFixed(0)}%\nPlease respond immediately.`
       : null;
 
-    // 6. Send SMS to emergency contacts + nearest station (parallel)
+    // Send SMS to emergency contacts + nearest station (parallel)
     const smsPromises = [];
 
     for (const contact of contacts) {
@@ -78,15 +77,14 @@ const triggerSOS = async (req, res) => {
     }
 
     // Fire and forget — don't block the response
-    Promise.allSettled(smsPromises).then(() => {
-      SOSEvent.findByIdAndUpdate(sosEvent._id, { status: 'dispatched' }).exec();
-    });
+    Promise.allSettled(smsPromises);
 
-    // 7. Emit real-time event to dashboard clients
+    // Emit real-time event to dashboard clients
     emitSOSNew({
       ...sosEvent.toObject(),
       nearestStation: nearest?.station ?? null,
       distanceKm: nearest?.distanceKm ?? null,
+      risk_score,
     });
 
     res.status(201).json({
