@@ -23,7 +23,7 @@ const triggerSOS = async (req, res) => {
 
     // 2. Create SOS event
     const sosEvent = await SOSEvent.create({
-      user_id: req.user.id,
+      user_id: req.userId,
       latitude,
       longitude,
       risk_level: risk_score,
@@ -36,7 +36,7 @@ const triggerSOS = async (req, res) => {
     const nearest = findNearestStation(latitude, longitude, stations);
 
     // 4. Get user's emergency contacts
-    const contacts = await EmergencyContact.find({ user_id: req.user.id });
+    const contacts = await EmergencyContact.find({ user_id: req.userId });
 
     // 5. Build SMS message
     const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;

@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
-import {userRouter} from './routes/user.route.js'
+import userRouter from './routes/user.route.js'
 
 // Routes
 import contactsRouter from './routes/contacts.routes.js';
@@ -41,14 +41,8 @@ app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
 
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
 
 //api of auth
-app.use('./api/auth',userRouter)
+app.use('/api/auth',userRouter)
 
 export default app;

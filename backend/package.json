@@ -13,12 +13,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-<<<<<<< HEAD
+    "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
-=======
-    "axios": "^1.14.0",
->>>>>>> eda74fe2413c712673346c105cd0b2e900b52710
     "cors": "^2.8.6",
     "dotenv": "^17.4.0",
     "express": "^5.2.1",
