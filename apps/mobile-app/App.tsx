@@ -26,6 +26,7 @@ import './src/tasks/backgroundTasks';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
+// @ts-ignore: React Navigation 6 module resolution force-fix
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
