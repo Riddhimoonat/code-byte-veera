@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db.js';
-import {userRouter} from './routes/user.route.js'
+import userRouter from './routes/user.route.js';
 
 // Routes
 import contactsRouter from './routes/contacts.routes.js';
@@ -15,9 +16,15 @@ const app = express();
 connectDB();
 
 // ── Core Middleware ──────────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || '*' }));
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
@@ -25,6 +32,7 @@ app.get('/', (req, res) => {
 });
 
 // ── API Routes ────────────────────────────────────────────────────────────────
+app.use('/api/auth', userRouter);
 app.use('/api/contacts', contactsRouter);
 app.use('/api/sos', sosRouter);
 app.use('/api/risk-score', riskRouter);
@@ -40,15 +48,5 @@ app.use((err, req, res, next) => {
   console.error('[Error]', err.stack);
   res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
-
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
-
-//api of auth
-app.use('./api/auth',userRouter)
 
 export default app;
