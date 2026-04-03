@@ -27,6 +27,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,16 +68,16 @@ function MainTabs() {
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarIcon: ({ color, size, focused }) => {
-          const icons: Record<string, { active: string; inactive: string }> = {
+        tabBarIcon: ({ color, size, focused }: { color: string; size: number; focused: boolean }) => {
+          const icons: Record<keyof MainTabParamList, { active: any; inactive: any }> = {
             Home:     { active: 'shield',          inactive: 'shield-outline' },
             Contacts: { active: 'people',          inactive: 'people-outline' },
             RiskMap:  { active: 'map',             inactive: 'map-outline' },
             Settings: { active: 'settings',        inactive: 'settings-outline' },
           };
-          const cfg = icons[route.name];
+          const cfg = icons[route.name as keyof MainTabParamList];
           const name = (focused ? cfg?.active : cfg?.inactive) ?? 'ellipse';
-          return <Ionicons name={name as any} size={size} color={color} />;
+          return <Ionicons name={name} size={size} color={color} />;
         },
       })}
     >
@@ -88,8 +89,7 @@ function MainTabs() {
   );
 }
 
-// ─── Onboarding Screen ─────────────────────────────────────────────────────────
-function OnboardingScreen({ navigation }: any) {
+function OnboardingScreen({ navigation }: { navigation: NativeStackNavigationProp<RootStackParamList, 'Onboarding'> }) {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
 
