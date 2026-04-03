@@ -30,6 +30,16 @@ const getAlerts = async (req, res) => {
 // PATCH /api/dashboard/alerts/:id
 const updateAlertStatus = async (req, res) => {
   try {
+    const { id } = req.params;
+    console.log('Alert ID from params:', id);
+
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Request body is required',
+      });
+    }
+
     const { status } = req.body;
     const validStatuses = ['active', 'dispatched', 'resolved'];
 
@@ -43,7 +53,7 @@ const updateAlertStatus = async (req, res) => {
     const update = { status };
     if (status === 'resolved') update.resolved_at = new Date();
 
-    const alert = await SOSEvent.findByIdAndUpdate(req.params.id, update, { new: true }).populate(
+    const alert = await SOSEvent.findByIdAndUpdate(id, update, { returnDocument: 'after' }).populate(
       'user_id',
       'name phone'
     );
