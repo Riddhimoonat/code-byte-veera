@@ -3,11 +3,31 @@ from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 import joblib
+import requests 
 
 # -------------------------
 # Load model
 # -------------------------
 model = joblib.load("women_safety_xgb_model.pkl")
+
+
+import requests
+
+def get_poi_count(lat, lon, radius=500):
+    query = f"""
+    [out:json];
+    node(around:{radius},{lat},{lon})["amenity"];
+    out;
+    """
+
+    url = "https://overpass-api.de/api/interpreter"
+
+    try:
+        response = requests.post(url, data=query, timeout=5)
+        data = response.json()
+        return len(data.get("elements", []))
+    except:
+        return 5  # fallback if API fails
 
 app = FastAPI()
 
@@ -77,7 +97,18 @@ def predict_risk_final(model, input_df):
 # -------------------------
 @app.post("/predict")
 def predict(data: RiskInput):
-    input_df = pd.DataFrame([data.dict()])
+    input_data = data.dict()
+
+    # 🔥 get live POI count
+    poi_count = get_poi_count(
+        input_data["latitude"],
+        input_data["longitude"]
+    )
+
+
+    # override value
+    input_data["poi_count"] = poi_count
+    input_df = pd.DataFrame([input_data])
 
     score, level = predict_risk_final(model, input_df)
 
@@ -92,3 +123,4 @@ def predict(data: RiskInput):
 @app.get("/")
 def home():
     return {"status": "API is running 🚀"}
+
