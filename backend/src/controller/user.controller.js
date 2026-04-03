@@ -1,6 +1,6 @@
 import UserModel from "../models/auth.model.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+import { genSalt, hash, compare } from "bcrypt";
 
 export async function register(req, res) {
   try {
@@ -20,8 +20,8 @@ export async function register(req, res) {
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await genSalt(10);
+    const hashedPassword = await hash(password, salt);
 
     const newUser = await UserModel.create({
       name,
@@ -32,7 +32,7 @@ export async function register(req, res) {
 
     const token = jwt.sign(
       { id: newUser._id },
-      process.env.JWT_SECRET_KEY,
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -80,7 +80,7 @@ export const userLoginControllers = async (req, res) => {
       });
     }
 
-    const comparePass = await bcrypt.compare(password, user.password);
+    const comparePass = await compare(password, user.password);
 
     if (!comparePass) {
       return res.status(401).json({
@@ -90,13 +90,13 @@ export const userLoginControllers = async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET_KEY,
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     res.cookie("token", token, {
       httpOnly: true,
-      maxAge: 60 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — matches JWT expiry
       secure: false,
       sameSite: "lax",
     });

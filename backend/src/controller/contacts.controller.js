@@ -3,7 +3,7 @@ import EmergencyContact from '../models/EmergencyContact.model.js';
 // GET /api/contacts
 const getContacts = async (req, res) => {
   try {
-    const contacts = await EmergencyContact.find({ user_id: req.user.id });
+    const contacts = await EmergencyContact.find({ user_id: req.userId });
     res.json({ success: true, data: contacts });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -20,7 +20,7 @@ const addContact = async (req, res) => {
     }
 
     const contact = await EmergencyContact.create({
-      user_id: req.user.id,
+      user_id: req.userId,
       name,
       phone,
       relationship,
@@ -37,7 +37,7 @@ const deleteContact = async (req, res) => {
   try {
     const contact = await EmergencyContact.findOneAndDelete({
       _id: req.params.id,
-      user_id: req.user.id, // ensure ownership
+      user_id: req.userId, // ensure ownership
     });
 
     if (!contact) {

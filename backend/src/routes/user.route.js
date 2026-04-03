@@ -3,7 +3,10 @@ import {
   register,
   userLoginControllers,
   getMe,
+<<<<<<< HEAD
   logout,
+=======
+>>>>>>> 556c257d73276443a0a738a543b1d15a504f7202
 } from "../controller/user.controller.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 
