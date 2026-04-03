@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Veera",
+    "slug": "veera",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f0f14"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.veera.safety",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Veera needs your location at all times to monitor your safety and send your position to emergency contacts when SOS is triggered.",
+        "NSLocationWhenInUseUsageDescription": "Veera needs your location to assess risk levels and show your position on the safety map.",
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#0f0f14"
+      },
+      "package": "com.veera.safety",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "FOREGROUND_SERVICE"
+      ]
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Veera needs your location at all times to monitor your safety and alert emergency contacts.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./src/assets/notification-icon.png",
+          "color": "#e85d5d"
+        }
+      ]
+    ]
+  }
+}
