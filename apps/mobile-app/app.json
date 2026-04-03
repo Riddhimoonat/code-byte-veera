@@ -17,7 +17,11 @@
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Veera needs your location at all times to monitor your safety and send your position to emergency contacts when SOS is triggered.",
         "NSLocationWhenInUseUsageDescription": "Veera needs your location to assess risk levels and show your position on the safety map.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -53,7 +57,8 @@
           "icon": "./src/assets/notification-icon.png",
           "color": "#e85d5d"
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
