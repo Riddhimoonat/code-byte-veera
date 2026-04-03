@@ -1,18 +1,17 @@
 import UserModel from "../models/auth.model.js";
 import jwt from "jsonwebtoken";
-import { genSalt, hash, compare } from "bcrypt";
 
 export async function register(req, res) {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, phone } = req.body;
 
-    if (!name || !email || !password || !phone) {
+    if (!name || !phone) {
       return res.status(400).json({
-        message: "All fields are required",
+        message: "Name and phone are required",
       });
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ phone });
 
     if (user) {
       return res.status(400).json({
@@ -20,13 +19,8 @@ export async function register(req, res) {
       });
     }
 
-    const salt = await genSalt(10);
-    const hashedPassword = await hash(password, salt);
-
     const newUser = await UserModel.create({
       name,
-      email,
-      password: hashedPassword,
       phone,
     });
 
@@ -48,7 +42,6 @@ export async function register(req, res) {
       user: {
         _id: newUser._id,
         name: newUser.name,
-        email: newUser.email,
         phone: newUser.phone,
       },
       token
@@ -64,27 +57,19 @@ export async function register(req, res) {
 
 export const userLoginControllers = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { phone } = req.body;
 
-    if (!email || !password) {
+    if (!phone) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: "Phone number is required",
       });
     }
 
-    const user = await UserModel.findOne({ email }).select('+password');
+    const user = await UserModel.findOne({ phone });
 
-    if (!user || !user.password) {
+    if (!user) {
       return res.status(404).json({
-        message: "User not found or invalid password",
-      });
-    }
-
-    const comparePass = await compare(password, user.password);
-
-    if (!comparePass) {
-      return res.status(401).json({
-        message: "Password not matched",
+        message: "User not found",
       });
     }
 
@@ -96,17 +81,18 @@ export const userLoginControllers = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — matches JWT expiry
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       secure: false,
       sameSite: "lax",
     });
 
-    const userObj = user.toObject();
-    delete userObj.password;
-
     return res.status(200).json({
       message: "User logged in successfully",
-      user: userObj,
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+      },
     });
   } catch (error) {
     console.log("LOGIN ERROR 👉", error.message);
@@ -119,7 +105,7 @@ export const userLoginControllers = async (req, res) => {
 
 export const getMe = async (req, res) => {
   try {
-    const user = await UserModel.findById(req.userId).select("-password");
+    const user = await UserModel.findById(req.userId);
 
     if (!user) {
       return res.status(404).json({
