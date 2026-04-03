@@ -72,11 +72,11 @@ export const userLoginControllers = async (req, res) => {
       });
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email }).select('+password');
 
-    if (!user) {
+    if (!user || !user.password) {
       return res.status(404).json({
-        message: "User not found",
+        message: "User not found or invalid password",
       });
     }
 
