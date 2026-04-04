@@ -115,7 +115,7 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
     opacity: op.value,
   }));
 
-  const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://10.114.213.92:5000/api';
+  const API_BASE = 'https://code-byte-veera-gg55.onrender.com/api';
 
   const handleAuth = async () => {
     const phoneRegex = /^[6-9]\d{9}$/;
@@ -302,8 +302,8 @@ export default function App() {
       
       if (token) {
         // Initialize Socket for Volunteer Notifications
-        const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://10.114.213.92:5000/api';
-        const SOCKET_URL = API_BASE.replace('/api', '');
+        const API_BASE = 'https://code-byte-veera-gg55.onrender.com/api';
+        const SOCKET_URL = 'https://code-byte-veera-gg55.onrender.com';
         const socket = io(SOCKET_URL);
         
         const userId = await AsyncStorage.getItem('@veera/user_id');

@@ -17,8 +17,7 @@ import type {
  * token injection. The BASE_URL comes from the .env file so the team can
  * switch between local dev and production without touching source code.
  */
-const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://localhost:5000/api';
+const BASE_URL = 'https://code-byte-veera-gg55.onrender.com/api';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
