@@ -111,14 +111,15 @@ export default function RiskMapScreen() {
         {location.latitude ? (
           <MapView
             ref={mapRef}
-            style={styles.map}
+            style={[styles.map, { backgroundColor: '#1a1a24' }]}
+            provider={PROVIDER_GOOGLE}
             initialRegion={{
               latitude: location.latitude,
               longitude: location.longitude!,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
+              latitudeDelta: 0.015,
+              longitudeDelta: 0.015,
             }}
-            showsUserLocation={true}
+            showsUserLocation={false}
             showsMyLocationButton={false}
           >
             {/* User marker */}
@@ -141,9 +142,10 @@ export default function RiskMapScreen() {
                 <Circle
                   key={`grid-${idx}`}
                   center={{ latitude: pt.latitude, longitude: pt.longitude }}
-                  radius={500}
+                  radius={400}
                   fillColor={RISK_CIRCLE_COLOR[cat] ?? RISK_CIRCLE_COLOR.Unknown}
-                  strokeColor="transparent"
+                  strokeColor={RISK_STROKE_COLOR[cat] + '44'}
+                  strokeWidth={1}
                 />
               );
             })}
