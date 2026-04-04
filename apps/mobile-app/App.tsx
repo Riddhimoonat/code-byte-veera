@@ -120,8 +120,8 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
   const animatedGlow = useAnimatedStyle(() => {
     return {
       transform: [
-        { translateX: interpolate(tx.value, [0, 1], [-width * 0.2, width * 0.7]) },
-        { translateY: interpolate(ty.value, [0, 1], [-height * 0.1, height * 0.8]) },
+        { translateX: interpolate(tx.value, [0, 1], [-100, width - 150]) },
+        { translateY: interpolate(ty.value, [0, 1], [-100, height - 150]) },
         { scale: sc.value },
       ],
       opacity: op.value,
@@ -166,14 +166,15 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
 
   return (
     <KeyboardAvoidingView style={styles.authRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Absolute Full Screen Glow Background */}
+      <Animated.View 
+        style={[styles.glow, animatedGlow]} 
+        pointerEvents="none" 
+      />
+
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.authContent}>
           
-          <Animated.View 
-            style={[styles.glow, animatedGlow]} 
-            pointerEvents="none" 
-          />
-
           <View style={styles.topSection}>
             <Ionicons name="shield-checkmark" size={60} color={COLORS.primary} />
             <Text style={styles.authHeader}>VEERA</Text>
