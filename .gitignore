@@ -25,3 +25,6 @@ build/
 out/
 # Vite / frontend tooling (if you add a client)
 .vite
+# Dashboard
+apps/dashboard/node_modules/
+apps/dashboard/dist/
