@@ -22,8 +22,10 @@ export default function RiskLevelBadge({ category, score }: Props) {
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg, borderColor: cfg.color }]}>
       <Text style={styles.icon}>{cfg.icon}</Text>
-      <Text style={[styles.label, { color: cfg.color }]}>{category}</Text>
-      {score !== undefined && (
+      <Text style={[styles.label, { color: cfg.color }]}>
+        {category === 'Unknown' ? 'Live Risk Score' : category}
+      </Text>
+      {score !== undefined && category !== 'Unknown' && (
         <Text style={[styles.score, { color: cfg.color }]}>{score}/100</Text>
       )}
     </View>

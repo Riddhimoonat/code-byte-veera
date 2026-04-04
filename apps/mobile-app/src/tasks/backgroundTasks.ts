@@ -96,9 +96,8 @@ export async function startBackgroundLocationTracking(): Promise<void> {
       accuracy: Location.Accuracy.Balanced,
       timeInterval: 60_000,        // Poll every 60 seconds (spec requirement)
       distanceInterval: 50,        // Or whenever user moves 50m — whichever first
-      showsBackgroundLocationIndicator: true, // iOS blue bar — required by App Store
+      showsBackgroundLocationIndicator: true, // iOS blue bar
       foregroundService: {
-        // Android requires a foreground service notification for background location
         notificationTitle: 'Veera Safety Monitor Active',
         notificationBody: 'Your location is being monitored for safety.',
         notificationColor: '#e85d5d',

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -63,7 +64,8 @@ export default function RiskMapScreen() {
       ]);
       setRiskData(exactRisk);
       setRiskGrid(mapGrid);
-    } catch (_) {
+    } catch (err: any) {
+      Alert.alert("Risk API Error", err.message || String(err));
     } finally {
       setIsLoading(false);
     }

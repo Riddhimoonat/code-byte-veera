@@ -25,7 +25,7 @@ const apiClient: AxiosInstance = axios.create({
   timeout: 12000,
   headers: {
     'Content-Type': 'application/json',
-    'Bypass-Tunnel-Reminder': 'true', // Required to bypass Localtunnel's warning screen
+    'Bypass-Tunnel-Reminder': 'true',
   },
 });
 
@@ -75,7 +75,14 @@ export async function fetchRiskScore(
 ): Promise<RiskScoreResponse> {
   const { data } = await apiClient.post<any>('/risk-score', payload);
   // Backend wraps in { success: true, data: result } 
-  return data.data || data; 
+  return data.data || data;
+}
+
+export async function fetchNearestStations(
+  payload: { latitude: number, longitude: number }
+): Promise<any[]> {
+  const { data } = await apiClient.post<any>('/risk-score/nearest-stations', payload);
+  return data.data || [];
 }
 
 export async function fetchRiskMap(

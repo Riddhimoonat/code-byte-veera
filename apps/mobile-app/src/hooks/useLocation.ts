@@ -43,10 +43,16 @@ export function useLocation() {
           return;
         }
 
-        // Get an immediate fix for the UI
-        const initial = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
+        // Get an immediate fix for the UI. In Expo Go Android, High accuracy often hangs forever!
+        // We first check the last known position for instant rendering.
+        let initial = await Location.getLastKnownPositionAsync();
+        
+        if (!initial) {
+          // If no cached location, request it fresh but with Balanced accuracy to prevent hanging
+          initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+        }
 
         if (!mounted) return;
 
