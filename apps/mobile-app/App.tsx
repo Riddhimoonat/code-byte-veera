@@ -1,9 +1,9 @@
 /**
- * App.tsx — Navigation root for Veera mobile app
+ * App.tsx — Navigation root and Authentication Gateway with OTP Verification
  */
 
 import './src/tasks/backgroundTasks';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -22,6 +22,7 @@ import {
   ScrollView,
   Alert,
   Dimensions,
+  Modal,
 } from 'react-native';
 import Animated, { 
   useSharedValue, 
@@ -81,84 +82,93 @@ function MainTabs() {
   );
 }
 
-// ─── AUTH SCREEN (Integrated & Animated) ──────────────────────────────────────────
+// ─── AUTH SCREEN (OTP Flow & Redirection) ──────────────────────────────────────────
 function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<RootStackParamList, 'Onboarding'> }) {
   const [isLogin, setIsLogin] = useState(true);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [name, setName] = useState('');
+  const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
 
-  // Background Animation - Random Floating Effect
+  // Background Animation
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const sc = useSharedValue(1);
   const op = useSharedValue(0.4);
 
   useEffect(() => {
-    // Horizontal movement
-    tx.value = withRepeat(
-      withTiming(1, { duration: 7000, easing: Easing.inOut(Easing.sin) }),
-      -1, true
-    );
-    // Vertical movement
-    ty.value = withRepeat(
-      withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }),
-      -1, true
-    );
-    // Pulse effect
-    sc.value = withRepeat(
-      withTiming(1.5, { duration: 5000, easing: Easing.inOut(Easing.ease) }),
-      -1, true
-    );
-    // Opacity pulse
-    op.value = withRepeat(
-      withTiming(0.7, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-      -1, true
-    );
+    tx.value = withRepeat(withTiming(1, { duration: 8000, easing: Easing.inOut(Easing.ease) }), -1, true);
+    ty.value = withRepeat(withTiming(1, { duration: 11000, easing: Easing.inOut(Easing.ease) }), -1, true);
+    sc.value = withRepeat(withTiming(1.5, { duration: 5000, easing: Easing.inOut(Easing.ease) }), -1, true);
+    op.value = withRepeat(withTiming(0.7, { duration: 4000, easing: Easing.inOut(Easing.ease) }), -1, true);
   }, []);
 
-  const animatedGlow = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateX: interpolate(tx.value, [0, 1], [-100, width - 150]) },
-        { translateY: interpolate(ty.value, [0, 1], [-100, height - 150]) },
-        { scale: sc.value },
-      ],
-      opacity: op.value,
-    };
-  });
+  const animatedGlow = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(tx.value, [0, 1], [-width * 0.2, width * 0.7]) },
+      { translateY: interpolate(ty.value, [0, 1], [-height * 0.1, height * 0.8]) },
+      { scale: sc.value },
+    ],
+    opacity: op.value,
+  }));
 
-  const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://veera-final-bolt.loca.lt/api';
+  const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://10.114.213.92:5000/api';
 
   const handleAuth = async () => {
-    if (!phoneNumber || phoneNumber.length < 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit number.');
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit mobile number.');
       return;
     }
-    if (!isLogin && !name.trim()) {
-      Alert.alert('Name Required', 'Please enter your name for registration.');
-      return;
+
+    if (!isLogin) {
+      if (!name.trim()) return Alert.alert('Name Required', 'Please enter your full name.');
+      const nameRegex = /^[a-zA-Z][a-zA-Z\s]{2,}$/;
+      if (!nameRegex.test(name.trim())) return Alert.alert('Invalid Name', 'Name should start with a letter and have no numbers/symbols.');
     }
 
     setIsLoading(true);
     try {
-      const endpoint = isLogin ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
-      const payload = isLogin ? { phone: phoneNumber } : { phone: phoneNumber, name: name.trim() };
-      
-      console.log(`[AUTH] Calling ${endpoint} with`, payload);
-      const response = await axios.post(endpoint, payload);
-      
-      const { user, token } = response.data;
-      
-      if (user?.name) await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, user.name);
-      if (user?.phone) await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, user.phone);
-      if (token) await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-      
-      navigation.replace('MainTabs');
+      if (isLogin) {
+        // STEP 1: LOGIN REQUEST (OTP REQUEST)
+        const { data } = await axios.post(`${API_BASE}/auth/login`, { phone: phoneNumber });
+        if (data.success) {
+          setShowOtpModal(true);
+          // For Dev: Show OTP code in alert if backend mocks it in response
+          if (data.mockedOtp) console.log("🔐 [DEV] OTP CODE:", data.mockedOtp);
+        }
+      } else {
+        // STEP 1: REGISTER REQUEST
+        const { data } = await axios.post(`${API_BASE}/auth/register`, { phone: phoneNumber, name: name.trim() });
+        if (data.success) {
+          setIsLogin(true); // Switch to Login mode as requested
+          Alert.alert('Registration Successful', 'Your profile is ready. Please log in with the same number to verify your phone.');
+        }
+      }
     } catch (err: any) {
-      console.log("❌ [AUTH ERROR]", err?.response?.data || err.message);
-      const errorMsg = err?.response?.data?.message || "Failed to connect to Veera servers.";
-      Alert.alert(isLogin ? 'Login Failed' : 'Registration Failed', errorMsg);
+      const errorMsg = err?.response?.data?.message || "Connection refused. Ensure server is running.";
+      Alert.alert(isLogin ? 'Login Request Failed' : 'Registration Failed', errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length < 6) return;
+    setIsLoading(true);
+    try {
+      const { data } = await axios.post(`${API_BASE}/auth/verify-otp`, { phone: phoneNumber, otp });
+      if (data.success) {
+        if (data.user?.name) await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, data.user.name);
+        if (data.user?.phone) await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, data.user.phone);
+        if (data.token) await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
+        
+        setShowOtpModal(false);
+        navigation.replace('MainTabs');
+      }
+    } catch (err: any) {
+      Alert.alert('Verification Failed', err?.response?.data?.message || "Invalid OTP code.");
     } finally {
       setIsLoading(false);
     }
@@ -166,19 +176,14 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
 
   return (
     <KeyboardAvoidingView style={styles.authRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      {/* Absolute Full Screen Glow Background */}
-      <Animated.View 
-        style={[styles.glow, animatedGlow]} 
-        pointerEvents="none" 
-      />
-
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.authContent}>
+          <Animated.View style={[styles.glow, animatedGlow]} pointerEvents="none" />
           
           <View style={styles.topSection}>
             <Ionicons name="shield-checkmark" size={60} color={COLORS.primary} />
             <Text style={styles.authHeader}>VEERA</Text>
-            <Text style={styles.authSub}>PROACTIVE PERSONAL SECURITY</Text>
+            <Text style={styles.authSub}>SECURE TWO-FACTOR PASS</Text>
           </View>
 
           <View style={styles.authCard}>
@@ -192,7 +197,7 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Registered Mobile Number</Text>
+              <Text style={styles.inputLabel}>Mobile Number</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="call-outline" size={20} color={COLORS.textMuted} style={{ marginRight: 12 }} />
                 <TextInput
@@ -228,16 +233,48 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.mainBtnText}>{isLogin ? 'ENTER PROTECTED ZONE' : 'CREATE PROTECTED PROFILE'}</Text>
+                <Text style={styles.mainBtnText}>{isLogin ? 'REQUEST OTP CODE' : 'CREATE PROTECTED PROFILE'}</Text>
               )}
             </TouchableOpacity>
           </View>
-
-          <Text style={styles.footerNote}>
-            🔒 Your security is our absolute priority.{'\n'}Data is encrypted end-to-end.
-          </Text>
         </View>
       </ScrollView>
+
+      {/* ─── OTP VERIFICATION MODAL ─────────────────────────────────────── */}
+      <Modal visible={showOtpModal} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.otpCard}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowOtpModal(false)}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            
+            <Ionicons name="mail-unread-outline" size={48} color={COLORS.primary} style={{ alignSelf: 'center' }} />
+            <Text style={styles.otpTitle}>Verify Phone</Text>
+            <Text style={styles.otpSub}>A 6-digit code has been sent to +91 {phoneNumber}</Text>
+
+            <TextInput
+              style={styles.otpInput}
+              placeholder="000 000"
+              placeholderTextColor="#333"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={otp}
+              onChangeText={setOtp}
+              autoFocus
+            />
+
+            <TouchableOpacity style={styles.mainBtn} onPress={handleVerifyOtp} disabled={isLoading || otp.length < 6}>
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.mainBtnText}>VERIFY & ENTER</Text>
+              )}
+            </TouchableOpacity>
+            
+            <Text style={styles.resendTxt}>Didn't receive code? <Text style={{ color: COLORS.primary }}>Resend</Text></Text>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -253,7 +290,6 @@ const CustomTheme = {
   },
 };
 
-// ─── Root Navigator ────────────────────────────────────────────────────────────
 export default function App() {
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'MainTabs' | null>(null);
 
@@ -282,29 +318,10 @@ const styles = StyleSheet.create({
   authRoot: { flex: 1, backgroundColor: '#000000' },
   authContent: { flex: 1, paddingHorizontal: 25, justifyContent: 'center' },
   topSection: { alignItems: 'center', marginBottom: 40, position: 'relative' },
-  glow: { 
-    position: 'absolute', 
-    top: 0,
-    left: 0,
-    width: 250, 
-    height: 250, 
-    borderRadius: 125, 
-    backgroundColor: COLORS.primaryGlow,
-    shadowColor: COLORS.primary,
-    shadowRadius: 80,
-    shadowOpacity: 1,
-    elevation: 30,
-    zIndex: -1 
-  },
+  glow: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: COLORS.primary, zIndex: -1 },
   authHeader: { color: 'white', fontSize: 44, fontWeight: '900', letterSpacing: 8, marginTop: 10 },
-  authSub: { color: COLORS.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 5 },
-  authCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 30,
-    padding: 25,
-    borderWidth: 1,
-    borderColor: '#1C1C1E',
-  },
+  authSub: { color: COLORS.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 5 },
+  authCard: { backgroundColor: '#0A0A0A', borderRadius: 30, padding: 25, borderWidth: 1, borderColor: '#1C1C1E' },
   modeTabs: { flexDirection: 'row', gap: 15, marginBottom: 30 },
   tab: { flex: 1, paddingVertical: 12, borderRadius: 15, alignItems: 'center' },
   tabActive: { backgroundColor: '#1C1C1E' },
@@ -312,24 +329,15 @@ const styles = StyleSheet.create({
   tabTextActive: { color: COLORS.primary },
   inputGroup: { marginBottom: 30 },
   inputLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginBottom: 12 },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161618',
-    borderRadius: 18,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
-    height: 60,
-  },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161618', borderRadius: 18, paddingHorizontal: 20, borderWidth: 1, borderColor: '#2C2C2E', height: 60 },
   input: { flex: 1, color: 'white', fontSize: 16, fontWeight: '600' },
-  mainBtn: {
-    backgroundColor: COLORS.primary,
-    height: 65,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  mainBtn: { backgroundColor: COLORS.primary, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   mainBtnText: { color: 'white', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  footerNote: { color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 30, lineHeight: 18 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 25 },
+  otpCard: { backgroundColor: '#111', borderRadius: 30, padding: 30, borderWidth: 1, borderColor: '#222' },
+  closeBtn: { position: 'absolute', top: 20, right: 20 },
+  otpTitle: { color: 'white', fontSize: 24, fontWeight: '800', textAlign: 'center', marginTop: 15 },
+  otpSub: { color: '#666', fontSize: 14, textAlign: 'center', marginTop: 8, marginBottom: 30 },
+  otpInput: { borderBottomWidth: 2, borderBottomColor: COLORS.primary, color: 'white', fontSize: 32, fontWeight: '800', textAlign: 'center', marginBottom: 40, paddingVertical: 10, letterSpacing: 10 },
+  resendTxt: { color: '#444', textAlign: 'center', marginTop: 25, fontSize: 13 },
 });

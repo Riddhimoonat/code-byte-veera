@@ -2,6 +2,7 @@ import express from "express";
 import {
   register,
   userLoginControllers,
+  verifyOtp,
   getMe,
   logout,
 } from "../controller/user.controller.js";
@@ -11,6 +12,7 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", userLoginControllers);
+router.post("/verify-otp", verifyOtp);
 router.post("/logout", logout);
 router.get("/me", authMiddleware, getMe);
 

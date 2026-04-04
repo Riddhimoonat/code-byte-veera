@@ -10,8 +10,16 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true
+    },
+    otp: {
+        type: String,
+        default: null
+    },
+    otpExpires: {
+        type: Date,
+        default: null
     }
-});
+}, { collection: 'veera_shield_users' });
 
 const UserModel = mongoose.model("User", userSchema)
 

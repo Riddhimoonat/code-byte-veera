@@ -12,24 +12,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, STORAGE_KEYS, SOS_HOLD_DURATION_MS } from '../constants';
+import { RootStackParamList } from '../types';
 
 const SOS_DURATIONS = [1000, 2000, 3000, 4000, 5000];
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation: NativeStackNavigationProp<RootStackParamList> }) {
   const [userName, setUserName] = useState('');
+  const [userPhone, setUserPhone] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [sosDuration, setSosDuration] = useState(SOS_HOLD_DURATION_MS);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const [n, duration] = await Promise.all([
+      const [n, phone, duration] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.USER_NAME),
+        AsyncStorage.getItem(STORAGE_KEYS.USER_PHONE),
         AsyncStorage.getItem(STORAGE_KEYS.SOS_SENSITIVITY)
       ]);
       if (n) setUserName(n);
+      if (phone) setUserPhone(phone);
       if (duration) setSosDuration(parseInt(duration, 10));
     })();
   }, []);
@@ -53,14 +58,18 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Clear Data', 'This will remove your name and contacts from this device.', [
+    Alert.alert('Log Out', 'Are you sure you want to log out from Veera?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Clear',
+        text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
-          setUserName('');
+          // Clear all Auth and project data
+          const keys = Object.values(STORAGE_KEYS);
+          await AsyncStorage.multiRemove(keys);
+          
+          // Reset navigation to Onboarding
+          navigation.getParent()?.navigate('Onboarding');
         },
       },
     ]);
@@ -69,13 +78,25 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>Settings</Text>
 
         {/* ── Profile Section ─────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>PROFILE</Text>
+        <Text style={styles.sectionHeader}>MY ACCOUNT</Text>
         <View style={styles.card}>
-          <Text style={styles.label}>Your Name</Text>
+          <View style={styles.profileInfo}>
+            <View style={styles.profileAvatar}>
+              <Text style={styles.avatarTxt}>{userName[0] || 'V'}</Text>
+            </View>
+            <View>
+              <Text style={styles.profileName}>{userName || 'Veera User'}</Text>
+              <Text style={styles.profilePhone}>Locked to {userPhone || 'Unlinked'}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.label}>Display Name</Text>
           <TextInput
             style={styles.input}
             value={userName}
@@ -85,7 +106,7 @@ export default function SettingsScreen() {
             autoCapitalize="words"
           />
           <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isSaving}>
-            <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : 'Save Profile'}</Text>
+            <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : 'Save Changes'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -145,22 +166,16 @@ export default function SettingsScreen() {
             <Ionicons name="shield" size={20} color={COLORS.primary} />
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Veera Safety</Text>
-              <Text style={styles.sublabel}>Version 1.0.0 — Built for TIC 2K26</Text>
+              <Text style={styles.sublabel}>Version 1.0.0 — TIC 2K26 Edition</Text>
             </View>
-          </View>
-          <View style={[styles.row, { marginTop: SPACING.sm }]}>
-            <Ionicons name="server-outline" size={20} color={COLORS.textMuted} />
-            <Text style={[styles.sublabel, { flex: 1 }]}>
-              Backend: {process.env.EXPO_PUBLIC_API_BASE_URL ?? 'Not configured'}
-            </Text>
           </View>
         </View>
 
         {/* ── Danger Zone ─────────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>DANGER ZONE</Text>
-        <TouchableOpacity style={styles.dangerBtn} onPress={handleLogout}>
-          <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-          <Text style={styles.dangerText}>Clear All Local Data</Text>
+        <Text style={styles.sectionHeader}>SESSION</Text>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color={COLORS.danger} />
+          <Text style={styles.logoutText}>Sign Out of Veera</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -217,6 +232,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
+  profileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  profileAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primaryGlow,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  avatarTxt: { color: COLORS.primary, fontSize: 24, fontWeight: '800' },
+  profileName: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800' },
+  profilePhone: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: SPACING.md,
+    opacity: 0.5,
+  },
   durationRow: {
     flexDirection: 'row',
     gap: SPACING.xs,
@@ -237,15 +277,17 @@ const styles = StyleSheet.create({
   durationText: { color: COLORS.textMuted, fontSize: 14, fontWeight: '600' },
   durationTextActive: { color: COLORS.primary },
   noteText: { color: COLORS.textMuted, fontSize: 11, marginTop: SPACING.xs },
-  dangerBtn: {
+  logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: SPACING.sm,
     backgroundColor: 'rgba(239,68,68,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.3)',
     padding: SPACING.md,
-    borderRadius: 12,
+    borderRadius: 16,
+    marginTop: SPACING.sm,
   },
-  dangerText: { color: COLORS.danger, fontWeight: '700', fontSize: 15 },
+  logoutText: { color: COLORS.danger, fontWeight: '800', fontSize: 15 },
 });

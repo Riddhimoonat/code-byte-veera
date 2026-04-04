@@ -19,19 +19,19 @@ const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
     // We cache this or use a very short timeout to avoid hanging the entire API response.
     let distance_km = 10.0; // default/fallback
     try {
-      const stations = await PoliceStation.find().maxTimeMS(500).lean();
+      const stations = await PoliceStation.find().maxTimeMS(1500).lean();
       const nearest = findNearestStation(lat, lng, stations);
       if (nearest) distance_km = nearest.distanceKm;
     } catch (dbErr) {
-      console.warn('[ML Service] PoliceStation DB check failed/timed out, using fallback distance.');
+      console.warn('[ML Service] PoliceStation DB check failed/timed out, using distance fallback.');
     }
 
     // Send the absolute complete feature set to the ML microservice
     const response = await axios.post(
       `${ML_API_URL}/predict`,
       {
-        latitude: lat,
-        longitude: lng,
+        latitude: parseFloat(lat),
+        longitude: parseFloat(lng),
         timestamp: timestamp,
         hour_of_day: hour,
         day_of_week: day_of_week,
@@ -39,7 +39,7 @@ const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
         is_isolated: is_isolated || false,
         distance_to_police_km: distance_km
       },
-      { timeout: 3000 }
+      { timeout: 10000 }
     );
 
     return response.data;
