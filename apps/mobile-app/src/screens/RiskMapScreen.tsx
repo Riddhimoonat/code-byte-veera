@@ -15,12 +15,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { 
   PanGestureHandler, 
   PanGestureHandlerGestureEvent,
+  PinchGestureHandler,
+  PinchGestureHandlerGestureEvent,
+  RotationGestureHandler,
+  RotationGestureHandlerGestureEvent,
   GestureHandlerRootView 
 } from 'react-native-gesture-handler';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
-  withSpring 
+  withSpring,
+  withTiming 
 } from 'react-native-reanimated';
 import { useLocation } from '../hooks/useLocation';
 import { fetchRiskScore, fetchRiskMap } from '../services/api';
@@ -52,24 +57,38 @@ export default function RiskMapScreen() {
   const [riskGrid, setRiskGrid] = useState<RiskMapPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Pan Gestures
+  // Tactical Gestures
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const rotation = useSharedValue(0);
 
-  const onGestureEvent = (event: PanGestureHandlerGestureEvent) => {
+  const onPanEvent = (event: PanGestureHandlerGestureEvent) => {
     translateX.value = event.nativeEvent.translationX;
     translateY.value = event.nativeEvent.translationY;
   };
 
-  const onGestureEnd = () => {
-    // Optional: spring back to center or stay. 
-    // Let's stay moved for 'exploration' but allow reset via refresh.
+  const onPinchEvent = (event: PinchGestureHandlerGestureEvent) => {
+    scale.value = event.nativeEvent.scale;
+  };
+
+  const onRotateEvent = (event: RotationGestureHandlerGestureEvent) => {
+    rotation.value = event.nativeEvent.rotation;
+  };
+
+  const onReset = () => {
+    translateX.value = withSpring(0);
+    translateY.value = withSpring(0);
+    scale.value = withSpring(1);
+    rotation.value = withSpring(0);
   };
 
   const animatedRadarStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
+      { scale: scale.value },
+      { rotate: `${rotation.value}rad` },
     ],
   }));
 
@@ -133,44 +152,52 @@ export default function RiskMapScreen() {
 
       {/* ─── Veera Safety Radar ─── */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <PanGestureHandler onGestureEvent={onGestureEvent} onEnded={onGestureEnd}>
-          <Animated.View style={[styles.radarWrapper, animatedRadarStyle]}>
-            {/* Distance Rings */}
-            <View style={[styles.ring, { width: width * 1.8, height: width * 1.8, opacity: 0.03 }]} />
-            <View style={[styles.ring, { width: width * 1.3, height: width * 1.3, opacity: 0.08 }]} />
-            <View style={[styles.ring, { width: width * 0.8, height: width * 0.8, opacity: 0.12 }]} />
-            
-            <View style={styles.radarCore}>
-               {/* Center Point (You) */}
-               <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '22' }]} />
-               <View style={[styles.userCore, { backgroundColor: '#fff', elevation: 15 }]}>
-                  <Ionicons name="navigate" size={12} color={RISK_STROKE_COLOR[riskCategory]} transform={[{ rotate: '45deg' }]} />
-               </View>
-               
-               {/* Risk Pips (The Grid) */}
-               {riskGrid.map((pt, idx) => {
-                 const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
-                 const dx = (pt.longitude - (location.longitude || 0)) * 28000;
-                 const dy = (pt.latitude - (location.latitude || 0)) * 28000;
-                 
-                 return (
-                   <View 
-                      key={`pip-${idx}`} 
-                      style={[
-                        styles.riskPip, 
-                        { 
-                          transform: [{ translateX: dx }, { translateY: -dy }], 
-                          backgroundColor: RISK_STROKE_COLOR[cat],
-                        }
-                      ]} 
-                   >
-                     <View style={[styles.pipGlow, { backgroundColor: RISK_STROKE_COLOR[cat] + '22' }]} />
-                   </View>
-                 );
-               })}
-            </View>
+        <RotationGestureHandler onGestureEvent={onRotateEvent}>
+          <Animated.View style={{ flex: 1 }}>
+            <PinchGestureHandler onGestureEvent={onPinchEvent}>
+              <Animated.View style={{ flex: 1 }}>
+                <PanGestureHandler onGestureEvent={onPanEvent}>
+                  <Animated.View style={[styles.radarWrapper, animatedRadarStyle]}>
+                    {/* Distance Rings */}
+                    <View style={[styles.ring, { width: width * 1.8, height: width * 1.8, opacity: 0.03 }]} />
+                    <View style={[styles.ring, { width: width * 1.3, height: width * 1.3, opacity: 0.08 }]} />
+                    <View style={[styles.ring, { width: width * 0.8, height: width * 0.8, opacity: 0.12 }]} />
+                    
+                    <View style={styles.radarCore}>
+                       {/* Center Point (You) */}
+                       <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '22' }]} />
+                       <View style={[styles.userCore, { backgroundColor: '#fff', elevation: 15 }]}>
+                          <Ionicons name="navigate" size={12} color={RISK_STROKE_COLOR[riskCategory]} transform={[{ rotate: '45deg' }]} />
+                       </View>
+                       
+                       {/* Risk Pips (The Grid) */}
+                       {riskGrid.map((pt, idx) => {
+                         const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
+                         const dx = (pt.longitude - (location.longitude || 0)) * 28000;
+                         const dy = (pt.latitude - (location.latitude || 0)) * 28000;
+                         
+                         return (
+                           <View 
+                              key={`pip-${idx}`} 
+                              style={[
+                                styles.riskPip, 
+                                { 
+                                  transform: [{ translateX: dx }, { translateY: -dy }], 
+                                  backgroundColor: RISK_STROKE_COLOR[cat],
+                                }
+                              ]} 
+                           >
+                             <View style={[styles.pipGlow, { backgroundColor: RISK_STROKE_COLOR[cat] + '22' }]} />
+                           </View>
+                         );
+                       })}
+                    </View>
+                  </Animated.View>
+                </PanGestureHandler>
+              </Animated.View>
+            </PinchGestureHandler>
           </Animated.View>
-        </PanGestureHandler>
+        </RotationGestureHandler>
 
         {/* Legend fixed outside pan */}
         <View style={styles.legendContainer}>
@@ -180,10 +207,7 @@ export default function RiskMapScreen() {
         </View>
         
         {/* Reset FAB if panned far */}
-        <TouchableOpacity 
-          style={styles.recenterRadar} 
-          onPress={() => { translateX.value = withSpring(0); translateY.value = withSpring(0); }}
-        >
+        <TouchableOpacity style={styles.recenterRadar} onPress={onReset}>
           <Ionicons name="locate" size={20} color="#fff" />
         </TouchableOpacity>
       </GestureHandlerRootView>
