@@ -136,13 +136,11 @@ export default function HomeScreen() {
         if (c.phone) phoneNumbers.push(c.phone);
       });
 
-      const separator = Platform.OS === 'ios' ? '&' : '?';
-      const smsUrl = `sms:${phoneNumbers.join(',')}${separator}body=${encodeURIComponent(smsBody)}`;
+      const smsUrl = Platform.OS === 'ios' 
+        ? `sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(smsBody)}`
+        : `sms:${phoneNumbers.join(',')}?body=${encodeURIComponent(smsBody)}`;
 
-      const supported = await Linking.canOpenURL(smsUrl);
-      if (supported) {
-        await Linking.openURL(smsUrl);
-      }
+      await Linking.openURL(smsUrl);
     } catch (e: any) {
       Alert.alert('SOS Failed', e.message);
     } finally {
