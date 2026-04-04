@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-get-random-values'; // Needed for crypto.getRandomValues
 import { STORAGE_KEYS, MAX_CONTACTS } from '../constants';
-import { syncContactToBackend, deleteContactFromBackend } from '../services/api';
+import { 
+  syncContactToBackend, 
+  deleteContactFromBackend, 
+  fetchContactsFromBackend 
+} from '../services/api';
 import type { EmergencyContact } from '../types';
 
 /**
@@ -16,16 +20,20 @@ export function useContacts() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Load from AsyncStorage on mount ────────────────────────────────────────
+  // ── Sync from Backend + Load from AsyncStorage ─────────────────────────────
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEYS.CONTACTS);
-        if (raw) {
-          setContacts(JSON.parse(raw));
-        }
+        // 1. Try fetching from backend first (user's unique cloud-saved contacts)
+        console.log('[SYNC] Fetching contacts from cloud...');
+        const cloudContacts = await fetchContactsFromBackend();
+        setContacts(cloudContacts);
+        await AsyncStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(cloudContacts));
       } catch (e) {
-        setError('Failed to load contacts from storage.');
+        console.warn('[SYNC] Backend contacts fetch failed, falling back to local.');
+        // 2. Fallback to local storage if offline or sync fails
+        const raw = await AsyncStorage.getItem(STORAGE_KEYS.CONTACTS);
+        if (raw) setContacts(JSON.parse(raw));
       } finally {
         setIsLoading(false);
       }

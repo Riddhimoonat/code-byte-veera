@@ -1,7 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
+<<<<<<< HEAD
 import userRouter from './routes/user.route.js';
+=======
+import userRouter from './routes/user.route.js'
+>>>>>>> a28fe0e766bfd51e82763b9338c6fe50341191f4
 import cookieParser from 'cookie-parser';
 import contactsRouter from './routes/contacts.routes.js';
 import sosRouter from './routes/sos.routes.js';
@@ -42,4 +46,10 @@ app.use((err, req, res, next) => {
   });
 });
 
+<<<<<<< HEAD
+=======
+
+// API of auth is already registered above at line 31
+
+>>>>>>> a28fe0e766bfd51e82763b9338c6fe50341191f4
 export default app;

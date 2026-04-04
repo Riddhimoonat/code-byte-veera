@@ -18,7 +18,7 @@ import type {
  * switch between local dev and production without touching source code.
  */
 const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://veera-core.onrender.com/api';
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://localhost:5000/api';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -136,6 +136,17 @@ export async function deleteContactFromBackend(
   contactId: string
 ): Promise<void> {
   await apiClient.delete(`/contacts/${contactId}`);
+}
+
+export async function fetchContactsFromBackend(): Promise<EmergencyContact[]> {
+  const { data } = await apiClient.get<{ success: boolean; data: any[] }>('/contacts');
+  // Backend returns them with _id, need to map to id for local state
+  return (data.data || []).map(c => ({
+    id: c._id,
+    name: c.name,
+    phone: c.phone,
+    relationship: c.relationship
+  }));
 }
 
 export default apiClient;

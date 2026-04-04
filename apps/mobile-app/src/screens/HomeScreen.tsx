@@ -25,7 +25,7 @@ import AddContactModal from '../components/AddContactModal';
 
 import { useLocation } from '../hooks/useLocation';
 import { useContacts } from '../hooks/useContacts';
-import { triggerSOS } from '../services/api';
+import { fetchRiskScore, triggerSOS } from '../services/api';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -63,32 +63,30 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // ── Risk Polling (Direct ML API) ───────────────────────────────────────────
+  // ── Risk Polling (Via Backend Service) ─────────────────────────────────────
   useEffect(() => {
-    if (!location.latitude) return;
+    if (!location.latitude || !location.longitude) return;
 
     const poll = async () => {
       try {
-        const axios = require('axios');
-        const payload = {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          hour: new Date().getHours(),
-        };
-        const response = await axios.post('https://veera-ml-api.onrender.com/predict', payload, { timeout: 8000 });
-        const data = response.data;
-        setRiskData({
-          risk_score: data.risk_score,
-          risk_category: (data.risk_level || data.risk_status || 'Medium').charAt(0).toUpperCase() + (data.risk_level || data.risk_status || 'Medium').slice(1).toLowerCase() as any,
-          risk_factors: data.risk_factors || [],
+        console.log('[POLL] Refreshing risk score...');
+        const score = await fetchRiskScore({
+          latitude: location.latitude as number,
+          longitude: location.longitude as number,
+          timestamp: new Date().toISOString(),
+          is_isolated: false // default, can be toggled by dead-man's timer
         });
+
+        if (score) {
+          setRiskData(score);
+        }
       } catch (err: any) {
-        console.log("[ML Direct Fetch Error]", err.message);
+        console.log("[ML Sync Error]", err.message);
       }
     };
 
     poll(); 
-    const interval = setInterval(poll, 300_000); 
+    const interval = setInterval(poll, 30_000); // Refresh every 30s for moving safety
     return () => clearInterval(interval);
   }, [location.latitude, location.longitude]);
 
