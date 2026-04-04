@@ -26,11 +26,15 @@ const Events = () => {
   return (
     <div className="space-y-10 py-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
       <header>
-        <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic flex items-center gap-3">
-          <span className="p-2 bg-accent_amber/20 rounded-xl"><MapPin className="h-6 w-6 text-accent_amber" /></span>
-          EVENT TELEMETRY
-        </h1>
-        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em] mt-1 ml-1">Live Global Incident Propagation Tracking</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-accent_amber/10 rounded-lg">
+              <MapPin className="h-5 w-5 text-accent_amber" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Event Telemetry</h1>
+              <p className="text-[13px] font-medium text-zinc-400 mt-0.5">Live Global Incident Propagation Tracking</p>
+            </div>
+          </div>
       </header>
 
       {/* Analytics Summary */}
@@ -57,17 +61,17 @@ const Events = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Table Section */}
-        <div className="lg:col-span-8 bg-[#111111] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-          <div className="p-6 border-b border-white/5 bg-white/[0.01]">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">Chronological Signal Flow</h3>
+        <div className="lg:col-span-8 bg-[#111111] border border-white/5 rounded-2xl overflow-hidden shadow-lg">
+          <div className="p-5 border-b border-white/5 bg-[#141414]">
+            <h3 className="text-[13px] font-semibold text-zinc-200">Chronological Signal Flow</h3>
           </div>
           <Table>
             <TableHeader className="bg-black/20">
               <TableRow className="border-white/5">
-                <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 pl-8 h-12">Signal ID</TableHead>
-                <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 h-12">GPS Matrix</TableHead>
-                <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 h-12 text-center">Hour</TableHead>
-                <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 h-12 text-right pr-8">Link</TableHead>
+                <TableHead className="font-medium text-[12px] text-zinc-400 pl-6 h-10">Signal ID</TableHead>
+                <TableHead className="font-medium text-[12px] text-zinc-400 h-10">Location Coordinates</TableHead>
+                <TableHead className="font-medium text-[12px] text-zinc-400 h-10 text-center">Time (Hour)</TableHead>
+                <TableHead className="font-medium text-[12px] text-zinc-400 h-10 text-right pr-6">External</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -78,17 +82,17 @@ const Events = () => {
               ) : (
                 alerts.map((alert) => (
                   <TableRow key={alert._id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <TableCell className="pl-8 py-4">
-                      <p className="text-[11px] font-black font-mono text-zinc-400 group-hover:text-white transition-colors">{alert._id.slice(-10).toUpperCase()}</p>
+                    <TableCell className="pl-6 py-3">
+                      <p className="text-[13px] font-medium font-mono text-zinc-300 group-hover:text-white transition-colors">{alert._id.slice(-10).toUpperCase()}</p>
                     </TableCell>
                     <TableCell>
-                      <p className="text-[11px] font-bold text-zinc-500 font-mono tracking-tighter">{alert.latitude.toFixed(6)}, {alert.longitude.toFixed(6)}</p>
+                      <p className="text-[13px] text-zinc-400 font-mono">{alert.latitude.toFixed(5)}, {alert.longitude.toFixed(5)}</p>
                     </TableCell>
-                    <TableCell className="text-center font-black text-[11px] text-accent_amber">
+                    <TableCell className="text-center font-medium text-[13px] text-accent_amber">
                       {alert.hour}:00
                     </TableCell>
-                    <TableCell className="text-right pr-8">
-                       <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent_amber/10 hover:text-accent_amber transition-all rounded-lg" asChild>
+                    <TableCell className="text-right pr-6">
+                       <Button size="icon" variant="ghost" className="h-8 w-8 text-zinc-400 hover:bg-white/10 hover:text-white transition-all rounded-md" asChild>
                          <a href={`https://www.google.com/maps?q=${alert.latitude},${alert.longitude}`} target="_blank" rel="noreferrer">
                            <ExternalLink className="h-4 w-4" />
                          </a>
@@ -103,9 +107,9 @@ const Events = () => {
 
         {/* Chart Section */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#111111] border border-white/5 p-6 rounded-3xl shadow-2xl h-full flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">Temporal Distribution</h3>
+          <div className="bg-[#111111] border border-white/5 p-5 rounded-2xl shadow-lg h-full flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[13px] font-semibold text-zinc-200">Temporal Distribution</h3>
               <div className="h-2 w-2 rounded-full bg-accent_red pulse-red" />
             </div>
             
@@ -141,14 +145,14 @@ const Events = () => {
               </ResponsiveContainer>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-white/5">
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <div className="h-10 w-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 group-hover:border-accent_red/30 transition-colors">
-                  <Shield className="h-5 w-5 text-zinc-600 group-hover:text-accent_red transition-colors" />
+            <div className="mt-6 pt-6 border-t border-white/5">
+              <div className="flex items-center gap-3 group cursor-pointer">
+                <div className="h-9 w-9 bg-white/5 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10">
+                  <Shield className="h-4 w-4 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black text-white tracking-widest uppercase mb-1">Regional Watchpoint</p>
-                   <p className="text-[11px] text-zinc-600 font-bold tracking-tight">Active surveillance node 12B enabled.</p>
+                   <p className="text-[13px] font-medium text-zinc-200">Regional Watchpoint</p>
+                   <p className="text-[11px] text-zinc-500 mt-0.5">Active surveillance node 12B enabled.</p>
                 </div>
               </div>
             </div>

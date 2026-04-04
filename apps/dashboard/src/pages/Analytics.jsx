@@ -53,23 +53,27 @@ const Analytics = () => {
   return (
     <div className="space-y-10 py-4 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic flex items-center gap-3">
-          <span className="p-2 bg-accent_red/20 rounded-xl"><LineIcon className="h-6 w-6 text-accent_red" /></span>
-          INTELLIGENCE ANALYTICS
-        </h1>
-        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em] mt-1 ml-1">Deep Signal Pattern Recognition</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-accent_red/10 rounded-lg">
+            <LineIcon className="h-5 w-5 text-accent_red" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Intelligence Analytics</h1>
+            <p className="text-[13px] font-medium text-zinc-400 mt-0.5">Deep Signal Pattern Recognition</p>
+          </div>
+        </div>
       </header>
 
       {/* Hourly Density Full Width */}
-      <div className="bg-[#111111] border border-white/5 p-8 rounded-3xl shadow-2xl space-y-8 relative overflow-hidden">
+      <div className="bg-[#111111] border border-white/5 p-6 rounded-2xl shadow-lg space-y-6 relative overflow-hidden">
         <div className="absolute top-0 right-10 w-32 h-32 bg-accent_red/5 blur-[50px] rounded-full pointer-events-none" />
         <div className="flex items-center justify-between">
            <div className="space-y-1">
-             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Temporal Signal Density</h3>
-             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Incident Volume per 24h Cycle</p>
+             <h3 className="text-[14px] font-semibold text-white">Temporal Signal Density</h3>
+             <p className="text-[12px] text-zinc-400">Incident Volume per 24h Cycle</p>
            </div>
            <div className="flex items-center gap-2">
-             <div className="px-3 py-1 bg-accent_red text-[10px] text-white font-black uppercase tracking-widest rounded-md">Live Data</div>
+             <div className="px-2 py-1 bg-accent_red/10 text-accent_red border border-accent_red/20 text-[11px] font-medium rounded-md">Live Data</div>
            </div>
         </div>
         <div className="h-[300px] w-full">
@@ -99,10 +103,10 @@ const Analytics = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Cumulative Flow */}
-        <div className="bg-[#111111] border border-white/5 p-8 rounded-3xl shadow-2xl h-[400px] flex flex-col">
-          <div className="flex items-center gap-3 mb-8">
+        <div className="bg-[#111111] border border-white/5 p-6 rounded-2xl shadow-lg h-[400px] flex flex-col">
+          <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="h-4 w-4 text-accent_green" />
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Cumulative Load Growth</h3>
+            <h3 className="text-[13px] font-semibold text-zinc-200">Cumulative Load Growth</h3>
           </div>
           <div className="flex-1 w-full">
              <ResponsiveContainer width="100%" height="100%">
@@ -119,10 +123,10 @@ const Analytics = () => {
         </div>
 
         {/* Phase Distribution */}
-        <div className="bg-[#111111] border border-white/5 p-8 rounded-3xl shadow-2xl h-[400px] flex flex-col">
-           <div className="flex items-center gap-3 mb-8">
+        <div className="bg-[#111111] border border-white/5 p-6 rounded-2xl shadow-lg h-[400px] flex flex-col">
+           <div className="flex items-center gap-2 mb-6">
             <PieIcon className="h-4 w-4 text-accent_amber" />
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Daily Phase Distribution</h3>
+            <h3 className="text-[13px] font-semibold text-zinc-200">Daily Phase Distribution</h3>
           </div>
           <div className="flex-1 w-full flex flex-col relative">
              <div className="flex-1 w-full relative h-full"> 
@@ -165,17 +169,17 @@ const Analytics = () => {
       </div>
 
       {/* Top Hours Table */}
-      <div className="bg-[#111111] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/5 bg-white/[0.01]">
-          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400">High-Frequence Intervals</h3>
+      <div className="bg-[#111111] border border-white/5 rounded-2xl overflow-hidden shadow-lg">
+        <div className="p-5 border-b border-white/5 bg-[#141414]">
+          <h3 className="text-[13px] font-semibold text-zinc-200">High-Frequency Intervals</h3>
         </div>
         <Table>
           <TableHeader className="bg-black/10">
             <TableRow className="border-white/5">
-              <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 pl-10 h-14">Rank</TableHead>
-              <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 h-14">Time Interval</TableHead>
-              <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 h-14 text-center">Peak Signals</TableHead>
-              <TableHead className="font-bold text-[10px] uppercase tracking-widest text-zinc-600 h-14 text-right pr-10">Relative Impact</TableHead>
+              <TableHead className="font-medium text-[12px] text-zinc-400 pl-6 h-10">Rank</TableHead>
+              <TableHead className="font-medium text-[12px] text-zinc-400 h-10">Time Interval</TableHead>
+              <TableHead className="font-medium text-[12px] text-zinc-400 h-10 text-center">Peak Signals</TableHead>
+              <TableHead className="font-medium text-[12px] text-zinc-400 h-10 text-right pr-6">Relative Impact</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -186,20 +190,20 @@ const Analytics = () => {
              ) : (
                 topHours.map((h, i) => (
                   <TableRow key={h._id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <TableCell className="pl-10 py-5">
-                       <span className="text-xs font-black text-accent_red/60 group-hover:text-accent_red transition-colors">0{i+1}</span>
+                    <TableCell className="pl-6 py-4">
+                       <span className="text-[13px] font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">0{i+1}</span>
                     </TableCell>
                     <TableCell>
-                       <p className="text-xs font-black uppercase tracking-widest text-zinc-400 group-hover:text-white transition-colors">{h._id > 12 ? `${h._id-12} PM` : `${h._id} AM`} to {h._id >= 23 ? '12 AM' : `${h._id+1 > 12 ? h._id+1-12 : h._id+1}${h._id+1 >= 12 ? ' PM' : ' AM'}`}</p>
+                       <p className="text-[13px] text-zinc-300 group-hover:text-white transition-colors">{h._id > 12 ? `${h._id-12} PM` : `${h._id} AM`} to {h._id >= 23 ? '12 AM' : `${h._id+1 > 12 ? h._id+1-12 : h._id+1}${h._id+1 >= 12 ? ' PM' : ' AM'}`}</p>
                     </TableCell>
                     <TableCell className="text-center">
-                       <div className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
+                       <div className="inline-flex items-center gap-2 bg-white/5 px-3 py-1 rounded-md border border-white/5">
                          <Activity className="h-3 w-3 text-accent_red" />
-                         <span className="text-xs font-bold text-white">{h.count}</span>
+                         <span className="text-[12px] font-medium text-white">{h.count}</span>
                        </div>
                     </TableCell>
-                    <TableCell className="pr-10 text-right">
-                       <div className="w-32 h-1.5 bg-black/40 rounded-full inline-block overflow-hidden relative border border-white/5">
+                    <TableCell className="pr-6 text-right">
+                       <div className="w-24 h-1.5 bg-black/40 rounded-full inline-block overflow-hidden relative border border-white/10">
                           <div 
                             className="absolute top-0 left-0 h-full bg-accent_red rounded-full" 
                             style={{ width: `${(h.count / (topHours[0]?.count || 1)) * 100}%` }}
