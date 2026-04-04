@@ -61,7 +61,6 @@ export default function RiskMapScreen() {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
 
   const onPanEvent = (event: PanGestureHandlerGestureEvent) => {
     translateX.value = event.nativeEvent.translationX;
@@ -73,14 +72,13 @@ export default function RiskMapScreen() {
   };
 
   const onRotateEvent = (event: RotationGestureHandlerGestureEvent) => {
-    rotation.value = event.nativeEvent.rotation;
+    // Rotation disabled for HUD stability
   };
 
   const onReset = () => {
     translateX.value = withSpring(0);
     translateY.value = withSpring(0);
     scale.value = withSpring(1);
-    rotation.value = withSpring(0);
   };
 
   const animatedRadarStyle = useAnimatedStyle(() => ({
@@ -88,7 +86,6 @@ export default function RiskMapScreen() {
       { translateX: translateX.value },
       { translateY: translateY.value },
       { scale: scale.value },
-      { rotate: `${rotation.value}rad` },
     ],
   }));
 
@@ -167,7 +164,7 @@ export default function RiskMapScreen() {
                        {/* Center Point (You) */}
                        <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '22' }]} />
                        <View style={[styles.userCore, { backgroundColor: '#fff', elevation: 15 }]}>
-                          <Ionicons name="navigate" size={12} color={RISK_STROKE_COLOR[riskCategory]} transform={[{ rotate: '45deg' }]} />
+                          <Ionicons name="navigate" size={12} color={RISK_STROKE_COLOR[riskCategory]} style={{ transform: [{ rotate: '45deg' }] }} />
                        </View>
                        
                        {/* Risk Pips (The Grid) */}
