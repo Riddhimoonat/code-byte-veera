@@ -124,30 +124,32 @@ const Analytics = () => {
             <PieIcon className="h-4 w-4 text-accent_amber" />
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Daily Phase Distribution</h3>
           </div>
-          <div className="flex-1 w-full flex items-center justify-center relative">
-             <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie
-                    data={timeOfDayData}
-                    cx="50%"
-                    cy="45%"
-                    innerRadius={80}
-                    outerRadius={110}
-                    paddingAngle={5}
-                    dataKey="value"
-                    animationBegin={500}
-                    animationDuration={1500}
-                 >
-                   {timeOfDayData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                   ))}
-                 </Pie>
-                 <Tooltip contentStyle={{ background: '#0A0A0A', border: '1px solid #1A1A1A', borderRadius: '12px' }} />
-               </PieChart>
-             </ResponsiveContainer>
-             <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none mt-[-20px]">
-                <p className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em]">Signal Share</p>
-                <div className="h-1 w-4 bg-accent_amber mt-1" />
+          <div className="flex-1 w-full flex flex-col relative">
+             <div className="flex-1 w-full relative h-full"> 
+               <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                   <Pie
+                      data={timeOfDayData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={110}
+                      paddingAngle={5}
+                      dataKey="value"
+                      animationBegin={500}
+                      animationDuration={1500}
+                   >
+                     {timeOfDayData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                     ))}
+                   </Pie>
+                   <Tooltip contentStyle={{ background: '#0A0A0A', border: '1px solid #1A1A1A', borderRadius: '12px' }} />
+                 </PieChart>
+               </ResponsiveContainer>
+               <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                  <p className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em]">Signal Share</p>
+                  <div className="h-1 w-4 bg-accent_amber mt-1" />
+               </div>
              </div>
              
              <div className="mt-4 flex flex-wrap justify-center gap-4">

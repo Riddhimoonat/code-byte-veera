@@ -10,7 +10,7 @@ export const useStats = () => {
     try {
       setLoading(true);
       const res = await api.get("/api/dashboard/stats");
-      setStats(res.data);
+      setStats(res.data.data || null);
     } catch (err) {
       setError(err.message || "Failed to fetch stats");
     } finally {
