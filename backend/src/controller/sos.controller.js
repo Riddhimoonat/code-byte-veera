@@ -1,4 +1,5 @@
 import SOSEvent from '../models/SOSEvent.model.js';
+import UserModel from '../models/auth.model.js';
 import EmergencyContact from '../models/EmergencyContact.model.js';
 import PoliceStation from '../models/PoliceStation.model.js';
 import SMSLog from '../models/SMSLog.model.js';
