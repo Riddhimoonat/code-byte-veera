@@ -4,6 +4,10 @@ import { findNearestStation } from './haversine.service.js';
 
 const ML_API_URL = process.env.ML_API_URL || 'https://veera-ml-api.onrender.com';
 
+// 🚀 Performance Cache: Storing recent coordinate results to prevent excessive slow ML calls
+const riskCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes fresh
+
 /**
  * Procedural Risk Factor Logic
  * WHY: The Python ML API only returns raw scores. We need to explain 'WHY' 
@@ -31,6 +35,15 @@ const generateRiskFactors = (score, hour, poi_count, crime_density) => {
  * FIX: Updated schema to match the 'hour' field requirement and increased timeout.
  */
 const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
+  // 1. Check Performance Cache First (Round to 3 decimals ~100m accuracy for caching)
+  const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+  const cached = riskCache.get(cacheKey);
+  
+  if (cached && (Date.now() - cached.time < CACHE_TTL)) {
+    console.log(`[ML] Serving Cached Risk for ${cacheKey}`);
+    return cached.data;
+  }
+
   try {
     const dateObj = new Date(timestamp);
     const hour = dateObj.getHours();
@@ -62,6 +75,11 @@ const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
       risk_category: (data.risk_level || 'Medium').charAt(0).toUpperCase() + (data.risk_level || 'Medium').slice(1).toLowerCase(),
       risk_factors: factors
     };
+
+    // Store in cache
+    riskCache.set(cacheKey, { time: Date.now(), data: result });
+    
+    return result;
   } catch (err) {
     console.error('[ML Service] Failed to get robust risk score:', err.message);
     
