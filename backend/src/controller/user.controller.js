@@ -52,9 +52,11 @@ export const userLoginControllers = async (req, res) => {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     user.otp = otpCode;
     user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiry
-    await user.save();
-
     console.log(`🔐 [OTP DEBUG] Code for ${phone}: ${otpCode}`);
+    
+    // Ensure the save is confirmed before responding
+    const updatedUser = await user.save();
+    console.log(`[AUTH DEBUG] OTP saved to DB for ${phone}: ${updatedUser.otp}`);
 
     // Send original SMS via Twilio if configured
     if (twilioClient) {
@@ -90,7 +92,8 @@ export const verifyOtp = async (req, res) => {
     const { phone, otp } = req.body;
     console.log(`[AUTH] Verifying OTP for: ${phone}`);
 
-    const user = await UserModel.findOne({ phone: phone.toString() });
+    // Fetch FRESH user from DB to ensure it sees the recently saved OTP
+    const user = await UserModel.findOne({ phone: phone.toString() }).lean();
     const now = new Date();
 
     if (!user) {
@@ -98,23 +101,23 @@ export const verifyOtp = async (req, res) => {
         return res.status(401).json({ message: "Invalid or expired OTP." });
     }
 
+    console.log(`[VERIFY TRACE] DB STATE -> PHONE: ${user.phone}, OTP: ${user.otp}, EXP: ${user.otpExpires}`);
+    
     const isMatch = !!user.otp && !!otp && user.otp.toString() === otp.toString();
     const isExpired = user.otpExpires && now > new Date(user.otpExpires);
 
-    console.log(`[VERIFY TRACE] Phone: ${user.phone}, CodeReceived: ${otp}, CodeStored: ${user.otp}, Match: ${isMatch}, Expired: ${isExpired}`);
-
     if (!isMatch) {
+      console.log(`❌ [VERIFY] Mismatch for ${phone}. Received: ${otp}, Stored: ${user.otp}`);
       return res.status(401).json({ message: "Incorrect OTP code." });
     }
 
     if (isExpired) {
+      console.log(`❌ [VERIFY] Expired for ${phone}. Now: ${now.toISOString()}, Expiry: ${new Date(user.otpExpires).toISOString()}`);
       return res.status(401).json({ message: "OTP has expired." });
     }
 
-    // Clear OTP after successful use
-    user.otp = null;
-    user.otpExpires = null;
-    await user.save();
+    // Since we used .lean(), we need a new instance for saving or use updateOne
+    await UserModel.updateOne({ _id: user._id }, { $set: { otp: null, otpExpires: null } });
 
     const token = jwt.sign(
       { id: user._id },
