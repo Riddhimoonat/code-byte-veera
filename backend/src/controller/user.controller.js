@@ -50,13 +50,21 @@ export const userLoginControllers = async (req, res) => {
 
     // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = otpCode;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiry
-    console.log(`🔐 [OTP DEBUG] Code for ${phone}: ${otpCode}`);
     
-    // Ensure the save is confirmed before responding
-    const updatedUser = await user.save();
-    console.log(`[AUTH DEBUG] OTP saved to DB for ${phone}: ${updatedUser.otp}`);
+    // ATOMIC UPDATE: Use findOneAndUpdate to ensure the write is locked and confirmed
+    const updatedUser = await UserModel.findOneAndUpdate(
+      { phone: phone.toString() },
+      { 
+        $set: { 
+          otp: otpCode, 
+          otpExpires: new Date(Date.now() + 60 * 60 * 1000) // Increase to 1hr for dev stability
+        } 
+      },
+      { new: true }
+    );
+
+    console.log(`🔐 [OTP DEBUG] Code for ${phone}: ${otpCode}`);
+    console.log(`[AUTH DEBUG] DB CONFIRMED -> UserID: ${updatedUser._id}, OTP IN DB: ${updatedUser.otp}`);
 
     // Send original SMS via Twilio if configured
     if (twilioClient) {
