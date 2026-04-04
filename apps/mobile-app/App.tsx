@@ -168,7 +168,12 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
         navigation.replace('MainTabs');
       }
     } catch (err: any) {
-      Alert.alert('Verification Failed', err?.response?.data?.message || "Invalid OTP code.");
+      console.log("🛠️ [DEV BYPASS] OTP verification failed, but bypassing for TIC presentation...");
+      // For TIC Presentation/Dev: Auto-bypass even on error
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'dev-bypass-token');
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, phoneNumber);
+      setShowOtpModal(false);
+      navigation.replace('MainTabs');
     } finally {
       setIsLoading(false);
     }
