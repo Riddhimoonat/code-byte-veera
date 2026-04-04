@@ -11,14 +11,20 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    otp: {
-        type: String,
-        default: null
-    },
     otpExpires: {
         type: Date,
         default: null
-    }
+    },
+    isVolunteer: {
+        type: Boolean,
+        default: false
+    },
+    lastLocation: {
+        latitude: Number,
+        longitude: Number,
+        updatedAt: { type: Date, default: Date.now }
+    },
+    pushToken: String
 }, { collection: 'veera_shield_users' });
 
 const UserModel = mongoose.model("User", userSchema)

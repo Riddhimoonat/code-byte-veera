@@ -1,16 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
-<<<<<<< HEAD
-import userRouter from './routes/user.route.js';
-=======
 import userRouter from './routes/user.route.js'
->>>>>>> a28fe0e766bfd51e82763b9338c6fe50341191f4
 import cookieParser from 'cookie-parser';
 import contactsRouter from './routes/contacts.routes.js';
 import sosRouter from './routes/sos.routes.js';
 import riskRouter from './routes/risk.routes.js';
 import dashboardRouter from './routes/dashboard.routes.js';
+import communityRouter from './routes/community.routes.js';
 
 const app = express();
 
@@ -33,6 +30,7 @@ app.use('/api/sos', sosRouter);
 app.use('/api/risk-score', riskRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/auth', userRouter);
+app.use('/api/community', communityRouter);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
@@ -46,10 +44,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-<<<<<<< HEAD
-=======
 
 // API of auth is already registered above at line 31
 
->>>>>>> a28fe0e766bfd51e82763b9338c6fe50341191f4
 export default app;
