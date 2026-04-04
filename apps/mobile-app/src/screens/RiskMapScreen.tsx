@@ -28,7 +28,7 @@ import Animated, {
   withTiming 
 } from 'react-native-reanimated';
 import { useLocation } from '../hooks/useLocation';
-import { fetchRiskScore, fetchRiskMap } from '../services/api';
+import { useRisk } from '../context/RiskContext';
 import RiskLevelBadge from '../components/RiskLevelBadge';
 import { COLORS, SPACING } from '../constants';
 import type { RiskScoreResponse, RiskMapPoint, RiskCategory } from '../types';
@@ -53,9 +53,7 @@ const RISK_STROKE_COLOR: Record<string, string> = {
 export default function RiskMapScreen() {
   const { width } = Dimensions.get('window');
   const location = useLocation();
-  const [riskData, setRiskData] = useState<RiskScoreResponse | null>(null);
-  const [riskGrid, setRiskGrid] = useState<RiskMapPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { riskData, riskMap, isLoading, refreshRisk } = useRisk();
 
   // Tactical Gestures
   const translateX = useSharedValue(0);
@@ -91,32 +89,9 @@ export default function RiskMapScreen() {
 
   const riskCategory: RiskCategory = (riskData?.risk_category as RiskCategory) ?? 'Unknown';
 
-  useEffect(() => {
-    if (!location.latitude) return;
-    assessRisk();
-  }, [location.latitude]);
-
-  const assessRisk = async () => {
-    if (!location.latitude || !location.longitude) return;
-    setIsLoading(true);
-    try {
-      const payload = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        timestamp: new Date().toISOString(),
-      };
-      // Fetch both exact point risk and the map grid in parallel
-      const [exactRisk, mapGrid] = await Promise.all([
-        fetchRiskScore(payload),
-        fetchRiskMap(payload),
-      ]);
-      setRiskData(exactRisk);
-      setRiskGrid(mapGrid);
-    } catch (err: any) {
-      Alert.alert("Risk API Error", err.message || String(err));
-    } finally {
-      setIsLoading(false);
-    }
+  // Manual refresh via HUD button now triggers Global Sync
+  const handleManualRefresh = () => {
+    refreshRisk();
   };
 
   // Radar UI is auto-centered around user by default logic.
@@ -138,7 +113,7 @@ export default function RiskMapScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Risk Map</Text>
-        <TouchableOpacity onPress={assessRisk} style={styles.refreshBtn} disabled={isLoading}>
+        <TouchableOpacity onPress={handleManualRefresh} style={styles.refreshBtn} disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator size="small" color={COLORS.primary} />
           ) : (
@@ -168,7 +143,7 @@ export default function RiskMapScreen() {
                        </View>
                        
                        {/* Risk Pips (The Grid) */}
-                       {riskGrid.map((pt, idx) => {
+                       {riskMap.map((pt, idx) => {
                          const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
                          const dx = (pt.longitude - (location.longitude || 0)) * 28000;
                          const dy = (pt.latitude - (location.latitude || 0)) * 28000;

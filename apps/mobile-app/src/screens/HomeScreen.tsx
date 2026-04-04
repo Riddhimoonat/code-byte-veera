@@ -25,7 +25,8 @@ import AddContactModal from '../components/AddContactModal';
 
 import { useLocation } from '../hooks/useLocation';
 import { useContacts } from '../hooks/useContacts';
-import { fetchRiskScore, triggerSOS } from '../services/api';
+import { useRisk } from '../context/RiskContext';
+import { triggerSOS } from '../services/api';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -41,7 +42,7 @@ export default function HomeScreen() {
   // ── States ──────────────────────────────────────────────────────────────────
   const [userName, setUserName] = useState<string>('User');
   const [isSafetyActive, setIsSafetyActive] = useState(false);
-  const [riskData, setRiskData] = useState<RiskScoreResponse | null>(null);
+  const { riskData, isLoading: isRiskLoading } = useRisk();
   const [isSendingSOS, setIsSendingSOS] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
@@ -63,32 +64,7 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // ── Risk Polling (Via Backend Service) ─────────────────────────────────────
-  useEffect(() => {
-    if (!location.latitude || !location.longitude) return;
-
-    const poll = async () => {
-      try {
-        console.log('[POLL] Refreshing risk score...');
-        const score = await fetchRiskScore({
-          latitude: location.latitude as number,
-          longitude: location.longitude as number,
-          timestamp: new Date().toISOString(),
-          is_isolated: false // default, can be toggled by dead-man's timer
-        });
-
-        if (score) {
-          setRiskData(score);
-        }
-      } catch (err: any) {
-        console.log("[ML Sync Error]", err.message);
-      }
-    };
-
-    poll(); 
-    const interval = setInterval(poll, 30_000); // Refresh every 30s for moving safety
-    return () => clearInterval(interval);
-  }, [location.latitude, location.longitude]);
+  // ── Risk Polling (Removed: Now handled globally by RiskProvider) ───────────
 
   // ── Animations ─────────────────────────────────────────────────────────────
   useEffect(() => {

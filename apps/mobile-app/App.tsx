@@ -41,6 +41,7 @@ import ContactsScreen from './src/screens/ContactsScreen';
 import RiskMapScreen from './src/screens/RiskMapScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { COLORS, SPACING, STORAGE_KEYS } from './src/constants';
+import { RiskProvider } from './src/context/RiskContext';
 import type { RootStackParamList, MainTabParamList } from './src/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -163,6 +164,7 @@ function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<Root
       if (data.success) {
         if (data.user?.name) await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, data.user.name);
         if (data.user?.phone) await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, data.user.phone);
+        if (data.user?._id) await AsyncStorage.setItem('@veera/user_id', data.user._id);
         if (data.token) await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
         
         setShowOtpModal(false);
@@ -329,12 +331,14 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <NavigationContainer theme={CustomTheme}>
-        <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
-          <Stack.Screen name="Onboarding" component={AuthScreen} />
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <RiskProvider>
+        <NavigationContainer theme={CustomTheme}>
+          <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
+            <Stack.Screen name="Onboarding" component={AuthScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </RiskProvider>
     </SafeAreaProvider>
   );
 }
