@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 // Removed MapView for Procedural Radar UI (Higher Reliability & Premium Feel)
 import { Ionicons } from '@expo/vector-icons';
+import { Magnetometer } from 'expo-sensors';
 import { 
   PanGestureHandler, 
   PanGestureHandlerGestureEvent,
@@ -61,7 +62,29 @@ export default function RiskMapScreen() {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
+  const heading = useSharedValue(0); // Magnetic Heading
+
+  // 🧲 Compass / Magnetometer subscription
+  useEffect(() => {
+    let sub: any = null;
+    
+    (async () => {
+      const { status } = await Magnetometer.requestPermissionsAsync();
+      if (status !== 'granted') return;
+      
+      sub = Magnetometer.addListener((result) => {
+        // Calculate degree heading from x,y magnetometer readings
+        let angle = Math.atan2(result.y, result.x) * (180 / Math.PI);
+        angle = (angle + 90) % 360; // Offset to North
+        heading.value = withTiming(-angle, { duration: 300 }); // Invert for radar rotation
+      });
+      Magnetometer.setUpdateInterval(100); // 10Hz for smooth HUD feel
+    })();
+
+    return () => {
+      sub && sub.remove();
+    };
+  }, []);
 
   const onPanEvent = (event: PanGestureHandlerGestureEvent) => {
     translateX.value = event.nativeEvent.translationX;
@@ -73,14 +96,14 @@ export default function RiskMapScreen() {
   };
 
   const onRotateEvent = (event: RotationGestureHandlerGestureEvent) => {
-    rotation.value = event.nativeEvent.rotation;
+    // Manually rotating can override heading or be additive. 
+    // For TIC let's stick to Auto-Heading for better UX.
   };
 
   const onReset = () => {
     translateX.value = withSpring(0);
     translateY.value = withSpring(0);
     scale.value = withSpring(1);
-    rotation.value = withSpring(0);
   };
 
   const animatedRadarStyle = useAnimatedStyle(() => ({
@@ -88,7 +111,7 @@ export default function RiskMapScreen() {
       { translateX: translateX.value },
       { translateY: translateY.value },
       { scale: scale.value },
-      { rotate: `${rotation.value}rad` },
+      { rotate: `${heading.value}deg` },
     ],
   }));
 
@@ -164,10 +187,10 @@ export default function RiskMapScreen() {
                     <View style={[styles.ring, { width: width * 0.8, height: width * 0.8, opacity: 0.12 }]} />
                     
                     <View style={styles.radarCore}>
-                       {/* Center Point (You) */}
+                       {/* Center Point (You - Points North) */}
                        <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '22' }]} />
                        <View style={[styles.userCore, { backgroundColor: '#fff', elevation: 15 }]}>
-                          <Ionicons name="navigate" size={12} color={RISK_STROKE_COLOR[riskCategory]} transform={[{ rotate: '45deg' }]} />
+                          <Ionicons name="arrow-up" size={14} color={RISK_STROKE_COLOR[riskCategory]} />
                        </View>
                        
                        {/* Risk Pips (The Grid) */}
