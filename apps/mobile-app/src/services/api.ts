@@ -7,6 +7,7 @@ import type {
   SOSRequest,
   SOSResponse,
   EmergencyContact,
+  RiskMapPoint,
 } from '../types';
 
 // ─── API Client Setup ──────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ const apiClient: AxiosInstance = axios.create({
   timeout: 12000,
   headers: {
     'Content-Type': 'application/json',
+    'Bypass-Tunnel-Reminder': 'true', // Required to bypass Localtunnel's warning screen
   },
 });
 
@@ -71,11 +73,16 @@ apiClient.interceptors.response.use(
 export async function fetchRiskScore(
   payload: RiskScoreRequest
 ): Promise<RiskScoreResponse> {
-  const { data } = await apiClient.post<RiskScoreResponse>(
-    '/risk-score',
-    payload
-  );
-  return data;
+  const { data } = await apiClient.post<any>('/risk-score', payload);
+  // Backend wraps in { success: true, data: result } 
+  return data.data || data; 
+}
+
+export async function fetchRiskMap(
+  payload: RiskScoreRequest
+): Promise<RiskMapPoint[]> {
+  const { data } = await apiClient.post<any>('/risk-score/map', payload);
+  return data.data || data;
 }
 
 // ─── SOS Trigger API ───────────────────────────────────────────────────────────

@@ -45,6 +45,11 @@ export interface RiskScoreResponse {
   risk_factors: string[];
 }
 
+export interface RiskMapPoint extends RiskScoreResponse {
+  latitude: number;
+  longitude: number;
+}
+
 // ─── SOS ───────────────────────────────────────────────────────────────────────
 /**
  * What WE send to the backend POST /api/sos endpoint.

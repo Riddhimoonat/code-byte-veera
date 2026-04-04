@@ -11,10 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../hooks/useLocation';
-import { fetchRiskScore } from '../services/api';
+import { fetchRiskScore, fetchRiskMap } from '../services/api';
 import RiskLevelBadge from '../components/RiskLevelBadge';
 import { COLORS, SPACING } from '../constants';
-import type { RiskScoreResponse, RiskCategory } from '../types';
+import type { RiskScoreResponse, RiskMapPoint, RiskCategory } from '../types';
 
 // Risk color for the circle overlay around user
 const RISK_CIRCLE_COLOR: Record<string, string> = {
@@ -37,6 +37,7 @@ export default function RiskMapScreen() {
   const location = useLocation();
   const mapRef = useRef<MapView>(null);
   const [riskData, setRiskData] = useState<RiskScoreResponse | null>(null);
+  const [riskGrid, setRiskGrid] = useState<RiskMapPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const riskCategory: RiskCategory = (riskData?.risk_category as RiskCategory) ?? 'Unknown';
@@ -50,12 +51,18 @@ export default function RiskMapScreen() {
     if (!location.latitude || !location.longitude) return;
     setIsLoading(true);
     try {
-      const result = await fetchRiskScore({
+      const payload = {
         latitude: location.latitude,
         longitude: location.longitude,
         timestamp: new Date().toISOString(),
-      });
-      setRiskData(result);
+      };
+      // Fetch both exact point risk and the map grid in parallel
+      const [exactRisk, mapGrid] = await Promise.all([
+        fetchRiskScore(payload),
+        fetchRiskMap(payload),
+      ]);
+      setRiskData(exactRisk);
+      setRiskGrid(mapGrid);
     } catch (_) {
     } finally {
       setIsLoading(false);
@@ -127,11 +134,25 @@ export default function RiskMapScreen() {
               </View>
             </Marker>
 
-            {/* Risk radius circle overlay */}
+            {/* Grid overlay circles for blurred heatmap effect */}
+            {riskGrid.map((pt, idx) => {
+              const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
+              return (
+                <Circle
+                  key={`grid-${idx}`}
+                  center={{ latitude: pt.latitude, longitude: pt.longitude }}
+                  radius={500}
+                  fillColor={RISK_CIRCLE_COLOR[cat] ?? RISK_CIRCLE_COLOR.Unknown}
+                  strokeColor="transparent"
+                />
+              );
+            })}
+            
+            {/* User marker radius overlay */}
             <Circle
               center={{ latitude: location.latitude, longitude: location.longitude! }}
-              radius={300}
-              fillColor={RISK_CIRCLE_COLOR[riskCategory] ?? RISK_CIRCLE_COLOR.Unknown}
+              radius={200}
+              fillColor="transparent"
               strokeColor={RISK_STROKE_COLOR[riskCategory] ?? RISK_STROKE_COLOR.Unknown}
               strokeWidth={2}
             />
