@@ -35,8 +35,8 @@ const AlertDetailSheet = ({ alert, isOpen, onOpenChange }) => {
             })
           ]);
           setDetails({
-            risk: riskRes.data,
-            stations: stationRes.data
+            risk: riskRes.data.data,
+            stations: stationRes.data.data
           });
         } catch (err) {
           console.error(err);

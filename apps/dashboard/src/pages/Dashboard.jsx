@@ -5,7 +5,7 @@ import { useSocket } from "@/hooks/useSocket";
 import KPICard from "@/components/ui/KPICard";
 import LiveMap from "@/components/ui/LiveMap";
 import HeatmapGrid from "@/components/ui/HeatmapGrid";
-import { Activity, Bell, Database, Wifi, Eye, Clock } from "lucide-react";
+import { Activity, Bell, Database, Wifi, Eye, Clock, MapPin, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import api from "@/lib/axios";
@@ -33,7 +33,7 @@ const Dashboard = () => {
           longitude: 77.4126,
           timestamp: new Date().toISOString()
         });
-        setHeatmapData(res.data);
+        setHeatmapData(res.data.data);
       } catch (err) {
         console.error(err);
       } finally {

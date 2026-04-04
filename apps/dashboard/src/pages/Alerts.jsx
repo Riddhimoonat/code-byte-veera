@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const Alerts = () => {
-  const { alerts, loading, page, setPage, meta } = useAlerts(page, 20);
+  const { alerts, loading, page, setPage, meta } = useAlerts(1, 20);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");

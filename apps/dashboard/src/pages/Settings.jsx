@@ -17,7 +17,7 @@ const Settings = () => {
           latitude: 23.2599,
           longitude: 77.4126
         });
-        setStations(res.data);
+        setStations(res.data.data);
       } catch (err) {
         console.error(err);
       } finally {
