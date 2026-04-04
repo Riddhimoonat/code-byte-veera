@@ -7,6 +7,7 @@ import {
   Alert,
   StatusBar,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -160,8 +161,10 @@ export default function HomeScreen() {
             <Text style={styles.userName}>{userName} 👋</Text>
           </View>
           {/* Safety mode toggle pill */}
-          <View
+          <TouchableOpacity
             style={[styles.modePill, isSafetyActive ? styles.modeActive : styles.modeInactive]}
+            onPress={handleSafetyToggle}
+            activeOpacity={0.7}
           >
             <Ionicons
               name={isSafetyActive ? 'shield-checkmark' : 'shield-outline'}
@@ -173,11 +176,10 @@ export default function HomeScreen() {
                 styles.modeText,
                 { color: isSafetyActive ? COLORS.success : COLORS.textMuted },
               ]}
-              onPress={handleSafetyToggle}
             >
               {isSafetyActive ? 'Safety ON' : 'Safety OFF'}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* ── Risk Badge ──────────────────────────────────────────────────── */}

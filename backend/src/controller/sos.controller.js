@@ -90,6 +90,8 @@ const triggerSOS = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'SOS triggered',
+      contacts_notified: contacts.length,
+      police_station_notified: nearest?.station?.name ?? 'Dispatched',
       data: {
         sosEventId: sosEvent._id,
         risk_score,

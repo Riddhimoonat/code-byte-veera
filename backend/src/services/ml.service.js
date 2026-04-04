@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const ML_API_URL = process.env.ML_API_URL || 'http://localhost:8000';
+const ML_API_URL = process.env.ML_API_URL || 'https://veera-ml-api.onrender.com';
 
 /**
  * Fetches a risk score from the FastAPI ML service.
@@ -12,15 +12,16 @@ const ML_API_URL = process.env.ML_API_URL || 'http://localhost:8000';
  */
 const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
   try {
+    const hour = new Date(timestamp).getHours();
+
     const response = await axios.post(
       `${ML_API_URL}/predict`,
       {
         latitude: lat,
         longitude: lng,
-        timestamp,
-        is_isolated,
+        hour
       },
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
 
     return response.data; // expects { risk_score: 0.87, risk_level: "high" }
