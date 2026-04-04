@@ -1,8 +1,19 @@
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import PoliceStation from '../models/PoliceStation.model.js';
 import { findNearestStation } from './haversine.service.js';
 
 const ML_API_URL = process.env.ML_API_URL || 'https://veera-ml-api.onrender.com';
+
+// 🔄 Cold-Start Resilience Logic
+// Render free-tier sleeps. We configure axios-retry to handle the 30s wake-up time.
+axiosRetry(axios, { 
+  retries: 3, 
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) => {
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) || error.code === 'ECONNABORTED';
+  }
+});
 
 /**
  * Procedural Risk Factor Logic
@@ -31,8 +42,14 @@ const generateRiskFactors = (score, hour, poi_count, crime_density) => {
  * FIX: Updated schema to match the 'hour' field requirement and increased timeout.
  */
 const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
+  if (lat == null || lng == null) {
+      return { success: false, message: 'latitude and longitude are required' };
+    }
+
+    console.log(`[RISK_API] Assessment Request: (${lat}, ${lng})`);
+    const ts = timestamp || new Date().toISOString();
   try {
-    const dateObj = new Date(timestamp);
+    const dateObj = new Date(ts);
     const hour = dateObj.getHours();
 
     // Send the exact field names expected by the FastAPI /predict endpoint
@@ -41,7 +58,7 @@ const getRiskScore = async (lat, lng, timestamp, is_isolated) => {
       {
         latitude: parseFloat(lat),
         longitude: parseFloat(lng),
-        timestamp: timestamp,
+        timestamp: ts,
         hour: hour, // Python API expects 'hour', not 'hour_of_day'
         is_isolated: is_isolated || false
       },
