@@ -34,6 +34,7 @@ export interface RiskScoreRequest {
   latitude: number;
   longitude: number;
   timestamp: string; // ISO 8601
+  is_isolated?: boolean;
 }
 
 /**

@@ -112,15 +112,13 @@ export default function RiskMapScreen() {
           <MapView
             ref={mapRef}
             style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            customMapStyle={darkMapStyle}
             initialRegion={{
               latitude: location.latitude,
               longitude: location.longitude!,
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             }}
-            showsUserLocation={false}
+            showsUserLocation={true}
             showsMyLocationButton={false}
           >
             {/* User marker */}
@@ -195,14 +193,8 @@ export default function RiskMapScreen() {
 }
 
 // Dark map style — matches the app's dark theme
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1a1a24' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f0f14' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e3e' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f0f18' }] },
-];
+// Placeholder for map style if needed later
+const darkMapStyle: any[] = [];
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },

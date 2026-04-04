@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -10,7 +10,8 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { COLORS, SPACING, MAX_CONTACTS } from '../constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS, SPACING, MAX_CONTACTS, STORAGE_KEYS } from '../constants';
 import type { EmergencyContact } from '../types';
 
 const RELATIONSHIPS = ['Mother', 'Father', 'Sister', 'Brother', 'Friend', 'Partner', 'Other'];
@@ -22,9 +23,9 @@ interface Props {
   currentCount: number;
 }
 
-function isValidIndianPhone(phone: string): boolean {
+const isValidIndianPhone = (phone: string): boolean => {
   return /^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''));
-}
+};
 
 export default function AddContactModal({ visible, onClose, onSave, currentCount }: Props) {
   const [name, setName] = useState('');
@@ -32,33 +33,49 @@ export default function AddContactModal({ visible, onClose, onSave, currentCount
   const [relationship, setRelationship] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [userOwnPhone, setUserOwnPhone] = useState<string | null>(null);
 
-  const reset = () => {
+  useEffect(() => {
+    (async () => {
+      const p = await AsyncStorage.getItem(STORAGE_KEYS.USER_PHONE);
+      if (p) setUserOwnPhone(p.replace(/\D/g, ''));
+    })();
+  }, []);
+
+  const reset = useCallback(() => {
     setName('');
     setPhone('');
     setRelationship('');
     setPhoneError(null);
     setIsSaving(false);
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleModalClose = useCallback(() => {
     reset();
     onClose();
-  };
+  }, [reset, onClose]);
 
   const handleSave = async () => {
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    
     const digits = phone.replace(/\D/g, '');
+    
     if (!isValidIndianPhone(digits)) {
       setPhoneError('Enter a valid 10-digit Indian mobile number (starts with 6-9).');
       return;
     }
-    if (!relationship) {
+
+    if (userOwnPhone && digits === userOwnPhone) {
+      setPhoneError("You cannot add your own number as an emergency contact.");
       return;
     }
+
+    if (!relationship) return;
+
     setIsSaving(true);
     try {
-      await onSave({ name: name.trim(), phone: digits, relationship });
+      await onSave({ name: trimmedName, phone: digits, relationship });
       reset();
       onClose();
     } catch (e: any) {
@@ -69,7 +86,7 @@ export default function AddContactModal({ visible, onClose, onSave, currentCount
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleModalClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -128,7 +145,7 @@ export default function AddContactModal({ visible, onClose, onSave, currentCount
 
           {/* Buttons */}
           <View style={styles.btnRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleModalClose}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
