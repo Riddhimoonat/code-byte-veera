@@ -2,11 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './config/db.js';
-<<<<<<< HEAD
 import userRouter from './routes/user.route.js';
-=======
-import userRouter from './routes/user.route.js'
->>>>>>> 556c257d73276443a0a738a543b1d15a504f7202
 
 // Routes
 import contactsRouter from './routes/contacts.routes.js';
@@ -53,11 +49,4 @@ app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
 
-<<<<<<< HEAD
-=======
-
-//api of auth
-app.use('/api/auth',userRouter)
-
->>>>>>> 556c257d73276443a0a738a543b1d15a504f7202
 export default app;
