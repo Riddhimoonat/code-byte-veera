@@ -7,9 +7,10 @@ import {
   ActivityIndicator,
   StatusBar,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+// Removed MapView for Procedural Radar UI (Higher Reliability & Premium Feel)
 import { Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../hooks/useLocation';
 import { fetchRiskScore, fetchRiskMap } from '../services/api';
@@ -35,8 +36,8 @@ const RISK_STROKE_COLOR: Record<string, string> = {
 };
 
 export default function RiskMapScreen() {
+  const { width } = Dimensions.get('window');
   const location = useLocation();
-  const mapRef = useRef<MapView>(null);
   const [riskData, setRiskData] = useState<RiskScoreResponse | null>(null);
   const [riskGrid, setRiskGrid] = useState<RiskMapPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,21 +72,14 @@ export default function RiskMapScreen() {
     }
   };
 
-  const recenter = () => {
-    if (!location.latitude || !mapRef.current) return;
-    mapRef.current.animateToRegion({
-      latitude: location.latitude,
-      longitude: location.longitude!,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
-  };
+  // Radar UI is auto-centered around user by default logic.
+  // Recenter functionality not required for procedural coordinate mapping.
 
   if (location.isLoading) {
     return (
       <SafeAreaView style={styles.safe}>
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 60 }} />
-        <Text style={styles.loadingText}>Getting your location…</Text>
+        <Text style={{ color: COLORS.textMuted, textAlign: 'center', marginTop: SPACING.md }}>Getting your location…</Text>
       </SafeAreaView>
     );
   }
@@ -106,69 +100,51 @@ export default function RiskMapScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Map */}
-      <View style={styles.mapWrapper}>
-        {location.latitude ? (
-          <MapView
-            ref={mapRef}
-            style={[styles.map, StyleSheet.absoluteFillObject]}
-            initialRegion={{
-              latitude: location.latitude,
-              longitude: location.longitude!,
-              latitudeDelta: 0.015,
-              longitudeDelta: 0.015,
-            }}
-            showsUserLocation={false}
-            showsMyLocationButton={false}
-          >
-            {/* User marker */}
-            <Marker
-              coordinate={{
-                latitude: location.latitude,
-                longitude: location.longitude!,
-              }}
-              title="You are here"
-            >
-              <View style={styles.userPin}>
-                <View style={styles.userPinInner} />
-              </View>
-            </Marker>
+      {/* ─── Veera Safety Radar ─── */}
+      <View style={styles.radarWrapper}>
+        {/* Distance Rings */}
+        <View style={[styles.ring, { width: width * 1.5, height: width * 1.5, opacity: 0.05 }]} />
+        <View style={[styles.ring, { width: width * 1.1, height: width * 1.1, opacity: 0.1 }]} />
+        <View style={[styles.ring, { width: width * 0.7, height: width * 0.7, opacity: 0.15 }]} />
+        
+        {/* Radar Scanning Line Animation (Optional effect) */}
+        <View style={styles.radarCore}>
+           {/* Center Point (You) */}
+           <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '44' }]} />
+           <View style={[styles.userCore, { backgroundColor: RISK_STROKE_COLOR[riskCategory] }]} />
+           
+           {/* Risk Pips (The Grid) */}
+           {riskGrid.map((pt, idx) => {
+             const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
+             // Map GPS offset to relative UI positioning
+             // We use a sensitivity factor to spread them on the radar screen
+             const dx = (pt.longitude - (location.longitude || 0)) * 25000;
+             const dy = (pt.latitude - (location.latitude || 0)) * 25000;
+             
+             return (
+               <View 
+                  key={`pip-${idx}`} 
+                  style={[
+                    styles.riskPip, 
+                    { 
+                      transform: [{ translateX: dx }, { translateY: -dy }], // -dy because Y is down in UI
+                      backgroundColor: RISK_STROKE_COLOR[cat],
+                      shadowColor: RISK_STROKE_COLOR[cat],
+                    }
+                  ]} 
+               >
+                 <View style={[styles.pipGlow, { backgroundColor: RISK_STROKE_COLOR[cat] + '33' }]} />
+               </View>
+             );
+           })}
+        </View>
 
-            {/* Grid overlay circles for blurred heatmap effect */}
-            {riskGrid.map((pt, idx) => {
-              const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
-              return (
-                <Circle
-                  key={`grid-${idx}`}
-                  center={{ latitude: pt.latitude, longitude: pt.longitude }}
-                  radius={400}
-                  fillColor={RISK_CIRCLE_COLOR[cat] ?? RISK_CIRCLE_COLOR.Unknown}
-                  strokeColor={RISK_STROKE_COLOR[cat] + '44'}
-                  strokeWidth={1}
-                />
-              );
-            })}
-            
-            {/* User marker radius overlay */}
-            <Circle
-              center={{ latitude: location.latitude, longitude: location.longitude! }}
-              radius={200}
-              fillColor="transparent"
-              strokeColor={RISK_STROKE_COLOR[riskCategory] ?? RISK_STROKE_COLOR.Unknown}
-              strokeWidth={2}
-            />
-          </MapView>
-        ) : (
-          <View style={styles.noLocationBox}>
-            <Ionicons name="location-outline" size={48} color={COLORS.border} />
-            <Text style={styles.noLocationText}>Location not available</Text>
-          </View>
-        )}
-
-        {/* Recenter FAB */}
-        <TouchableOpacity style={styles.recenterFab} onPress={recenter}>
-          <Ionicons name="locate" size={22} color="#fff" />
-        </TouchableOpacity>
+        {/* Legend */}
+        <View style={styles.legendContainer}>
+          <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legTxt}>Extreme</Text></View>
+          <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.legTxt}>Mid</Text></View>
+          <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legTxt}>Safe</Text></View>
+        </View>
       </View>
 
       {/* Bottom info card */}
@@ -208,52 +184,72 @@ const styles = StyleSheet.create({
   },
   title: { color: COLORS.textPrimary, fontSize: 22, fontWeight: '800' },
   refreshBtn: { padding: SPACING.sm },
-  mapWrapper: { flex: 1, position: 'relative' },
-  map: { flex: 1 },
-  noLocationBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.md,
+  radarWrapper: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    overflow: 'hidden',
+    backgroundColor: '#050508' 
   },
-  noLocationText: { color: COLORS.textMuted },
-  userPin: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(232,93,93,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userPinInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.primary,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  recenterFab: {
+  radarCore: { width: 300, height: 300, justifyContent: 'center', alignItems: 'center' },
+  ring: {
     position: 'absolute',
-    bottom: SPACING.lg,
-    right: SPACING.md,
-    backgroundColor: COLORS.primary,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: 999,
+  },
+  userCore: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: '#fff',
+    zIndex: 10,
   },
   loadingText: {
     color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: SPACING.md,
   },
+  userPulse: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  riskPip: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    zIndex: 5,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  pipGlow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginLeft: -9,
+    marginTop: -9,
+  },
+  legendContainer: {
+    position: 'absolute',
+    bottom: SPACING.xl,
+    flexDirection: 'row',
+    gap: SPACING.md,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#111',
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  legTxt: { color: '#999', fontSize: 11, fontWeight: '700' },
   infoCard: {
     backgroundColor: COLORS.surface,
     padding: SPACING.lg,
