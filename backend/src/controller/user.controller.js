@@ -65,11 +65,13 @@ export const userLoginControllers = async (req, res) => {
       });
     }
 
-    const user = await UserModel.findOne({ phone });
+    let user = await UserModel.findOne({ phone });
 
+    // If user doesn't exist, create one automatically for demo
     if (!user) {
-      return res.status(404).json({
-        message: "User not found",
+      user = await UserModel.create({
+        name: 'Admin User',
+        phone: phone,
       });
     }
 
@@ -93,6 +95,7 @@ export const userLoginControllers = async (req, res) => {
         name: user.name,
         phone: user.phone,
       },
+      token
     });
   } catch (error) {
     console.log("LOGIN ERROR 👉", error.message);

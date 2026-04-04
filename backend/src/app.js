@@ -1,14 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
-<<<<<<< HEAD
 import userRouter from './routes/user.route.js';
-
-// Routes
-=======
-import userRouter from './routes/user.route.js'
 import cookieParser from 'cookie-parser';
->>>>>>> 1782d93b39966eeb5472deab8904fb15a963ad10
 import contactsRouter from './routes/contacts.routes.js';
 import sosRouter from './routes/sos.routes.js';
 import riskRouter from './routes/risk.routes.js';
@@ -48,11 +42,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-<<<<<<< HEAD
-=======
-
-//api of auth
-app.use('/api/auth',userRouter)
-
->>>>>>> 1782d93b39966eeb5472deab8904fb15a963ad10
 export default app;
