@@ -117,67 +117,8 @@ export const verifyOtp = async (req, res) => {
       token
     });
   } catch (error) {
-<<<<<<< HEAD
-    console.log("REGISTER ERROR 👉", error.message);
-
-    return res.status(500).json({
-      message: "Internal server error",
-    });
-  }
-}
-
-export const userLoginControllers = async (req, res) => {
-  try {
-    const { phone } = req.body;
-
-    if (!phone) {
-      return res.status(400).json({
-        message: "Phone number is required",
-      });
-    }
-
-    let user = await UserModel.findOne({ phone });
-
-    // If user doesn't exist, create one automatically for demo
-    if (!user) {
-      user = await UserModel.create({
-        name: 'Admin User',
-        phone: phone,
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      secure: false,
-      sameSite: "lax",
-    });
-
-    return res.status(200).json({
-      message: "User logged in successfully",
-      user: {
-        _id: user._id,
-        name: user.name,
-        phone: user.phone,
-      },
-      token
-    });
-  } catch (error) {
-    console.log("LOGIN ERROR 👉", error.message);
-
-    return res.status(500).json({
-      message: "Internal server error",
-    });
-=======
     console.error("❌ [VERIFY ERROR]", error.message);
     return res.status(500).json({ message: "Internal server error" });
->>>>>>> a28fe0e766bfd51e82763b9338c6fe50341191f4
   }
 };
 

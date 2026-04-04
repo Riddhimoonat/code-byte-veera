@@ -1,6 +1,6 @@
 import express from 'express';
 import { createReportHandler, getNearReportsHandler } from '../controller/community.controller.js';
-import { authenticate } from '../middleware/auth.middleware.js';
+import { authenticate } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
