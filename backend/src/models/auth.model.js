@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
             default: [0, 0]
         }
     }
-}, { collection: 'veera_shield_users', timestamps: True });
+}, { collection: 'veera_shield_users', timestamps: true });
 
 userSchema.index({ lastLocation: '2dsphere' });
 
