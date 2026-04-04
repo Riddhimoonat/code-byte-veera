@@ -60,26 +60,40 @@ Veera addresses all these gaps with a proactive, intelligent, and reliable safet
 ### System Overview
 
 ```
-┌─────────────────┐
-│  Mobile App     │  React Native + Expo
-│  (iOS/Android)  │  - User Interface
-└────────┬────────┘  - Location Services
-         │           - Local Storage
-         │
-         ▼
-┌─────────────────┐
-│  Node.js API    │  Express + Socket.io
-│  (Backend)      │  - Authentication (JWT)
-└────────┬────────┘  - Contact Management
-         │           - SOS Coordination
-         │           - Twilio SMS Integration
-         │
-         ▼
-┌─────────────────┐
-│  ML Service     │  Python + FastAPI
-│  (Risk Engine)  │  - XGBoost Model
-└─────────────────┘  - POI Analysis
-                     - Risk Scoring
+┌─────────────────┐         ┌─────────────────┐
+│  Mobile App     │         │ Admin Dashboard │
+│  (iOS/Android)  │         │  (Web Portal)   │
+│                 │         │                 │
+│ React Native +  │         │  React + Vite   │
+│     Expo        │         │  Tailwind CSS   │
+│                 │         │  Socket.io      │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         │    Real-time Updates      │
+         │    ◄──────────────────►   │
+         │                           │
+         └───────────┬───────────────┘
+                     │
+                     ▼
+         ┌─────────────────────┐
+         │   Node.js API       │
+         │   Express + Socket  │
+         │                     │
+         │  - Authentication   │
+         │  - SOS Coordination │
+         │  - Contact Mgmt     │
+         │  - Twilio SMS       │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │    ML Service       │
+         │  Python + FastAPI   │
+         │                     │
+         │  - XGBoost Model    │
+         │  - POI Analysis     │
+         │  - Risk Scoring     │
+         └─────────────────────┘
 ```
 
 ### Technology Stack
@@ -92,6 +106,16 @@ Veera addresses all these gaps with a proactive, intelligent, and reliable safet
 - **Maps**: react-native-maps
 - **Notifications**: expo-notifications
 - **Language**: TypeScript
+
+#### Admin Dashboard (`apps/dashboard/`)
+- **Framework**: React 19 with Vite 8
+- **UI Library**: Tailwind CSS 4 + Shadcn UI
+- **Routing**: React Router DOM 7
+- **Charts**: Recharts for data visualization
+- **Maps**: React Leaflet for geospatial view
+- **Real-time**: Socket.io-client for live updates
+- **HTTP Client**: Axios
+- **Language**: JavaScript (ES6+)
 
 #### Backend (`backend/`)
 - **Runtime**: Node.js with ES Modules
@@ -186,6 +210,22 @@ npx expo start
 # Scan QR code for physical device
 ```
 
+### 5. Setup Admin Dashboard
+
+```bash
+cd apps/dashboard
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev -- --port 3001
+```
+
+Dashboard runs on `http://localhost:3001`
+
+**Note**: Dashboard connects to backend at `http://localhost:5000` by default
+
 ---
 
 ## 📱 Mobile App Features
@@ -223,6 +263,55 @@ npx expo start
 - Notification preferences
 - Background tracking toggle
 - App version and diagnostics
+
+---
+
+## 🖥️ Admin Dashboard Features
+
+### Real-time Command Center
+The admin dashboard provides a sophisticated monitoring and analytics platform for safety coordinators, emergency responders, and administrators.
+
+### Dashboard Overview
+- **Live KPI Cards**: Active alerts, total users, response time, and risk distribution
+- **Interactive Risk Map**: Real-time geospatial view of all active SOS incidents with dark theme
+- **Risk Distribution Grid**: 3x3 heatmap showing predictive risk patterns across regions
+- **Recent Alerts Feed**: Live-updating list of SOS events with timestamps and locations
+
+### Analytics Page
+- **Time-series Charts**: Hourly alert patterns and trend analysis
+- **Risk Level Distribution**: Visual breakdown of low/medium/high/critical incidents
+- **Response Metrics**: Average response times and resolution rates
+- **Pattern Recognition**: Identification of high-risk time windows
+
+### Alerts Management
+- **Real-time SOS Monitoring**: Instant notifications via Socket.io when users trigger SOS
+- **Alert Details Sheet**: Comprehensive incident information including:
+  - User details and contact information
+  - Precise GPS coordinates with Google Maps link
+  - Nearest police station with distance
+  - Risk assessment score
+  - Timestamp and status tracking
+- **Alert Filtering**: Filter by status (active, resolved, false alarm)
+- **Bulk Actions**: Mark multiple alerts as resolved
+
+### Events Timeline
+- Complete audit log of all system events
+- SOS triggers, risk assessments, and user activities
+- Searchable and filterable event history
+- Export capabilities for reporting
+
+### Settings & Configuration
+- Admin profile management
+- Notification preferences
+- System configuration
+- User management tools
+
+### Technical Features
+- **OTP-based Authentication**: Secure admin login with token persistence
+- **Socket.io Integration**: Real-time updates without page refresh
+- **Responsive Design**: Works on desktop, tablet, and mobile browsers
+- **Dark Mode Optimized**: Tactical interface for 24/7 monitoring
+- **Accessible UI**: Built with Radix UI primitives for WCAG compliance
 
 ---
 
@@ -517,7 +606,8 @@ eas submit --platform ios
 ```
 veera-safety/
 ├── apps/
-│   └── mobile-app/          # Mobile team owns this
+│   ├── mobile-app/          # Mobile team owns this
+│   └── dashboard/           # Dashboard team owns this
 ├── backend/
 │   ├── src/                 # Backend team owns this
 │   └── ML/                  # ML team owns this
@@ -526,12 +616,15 @@ veera-safety/
 
 ### Development Workflow
 1. **Mobile Team**: Focuses on UI/UX, location services, and offline features
-2. **Backend Team**: Handles API, database, authentication, and Twilio integration
-3. **ML Team**: Maintains risk model, POI integration, and prediction accuracy
+2. **Dashboard Team**: Builds admin portal, analytics, and monitoring tools
+3. **Backend Team**: Handles API, database, authentication, and Twilio integration
+4. **ML Team**: Maintains risk model, POI integration, and prediction accuracy
 
 ### Communication
 - Mobile app expects backend at `EXPO_PUBLIC_API_BASE_URL`
+- Admin dashboard connects to backend at `http://localhost:5000` (configurable in `src/lib/axios.js`)
 - Backend expects ML service at `ML_API_URL`
+- Real-time updates flow: Backend → Socket.io → Dashboard & Mobile App
 - All teams coordinate on API contract changes
 
 ---
@@ -539,16 +632,27 @@ veera-safety/
 ## 📈 Future Enhancements
 
 ### Planned Features
+
+#### Mobile App
 - [ ] Live location sharing with trusted contacts
 - [ ] Voice-activated SOS trigger
-- [ ] Integration with local police APIs
-- [ ] Community-reported incident markers
-- [ ] Safe route recommendations
 - [ ] Panic button widget for lock screen
 - [ ] Apple Watch / Wear OS companion app
 - [ ] Multi-language support
 - [ ] Offline maps caching
 - [ ] AI-powered threat detection from ambient audio
+
+#### Admin Dashboard
+- [ ] Live location tracking of active users
+- [ ] Two-way communication with users in distress
+- [ ] Dispatch management for emergency responders
+- [ ] Advanced analytics with ML-powered insights
+- [ ] Geofencing and custom alert zones
+- [ ] Integration with local police APIs
+- [ ] Community-reported incident markers
+- [ ] Safe route recommendations engine
+- [ ] Export reports in PDF/CSV formats
+- [ ] Multi-admin role management
 
 ### ML Model Improvements
 - [ ] Train on larger, more diverse datasets
