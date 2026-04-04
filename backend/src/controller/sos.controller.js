@@ -6,6 +6,7 @@ import { findNearestStation } from '../services/haversine.service.js';
 import { sendSMS } from '../services/twilio.service.js';
 import { getRiskScore } from '../services/ml.service.js';
 import { emitSOSNew } from '../services/socket.service.js';
+import UserModel from '../models/auth.model.js';
 
 // POST /api/sos
 const triggerSOS = async (req, res) => {
@@ -73,6 +74,22 @@ const triggerSOS = async (req, res) => {
             sent_at: new Date(),
           })
         )
+      );
+    }
+
+    // 🦸 COMMUNITY VOLUNTEERS: Alert nearby first-responders (2km radius)
+    const volunteerDelta = 0.02; // ~2km
+    const nearbyVolunteers = await UserModel.find({
+      isVolunteer: true,
+      'lastLocation.latitude': { $gt: latitude - volunteerDelta, $lt: parseFloat(latitude) + volunteerDelta },
+      'lastLocation.longitude': { $gt: longitude - volunteerDelta, $lt: parseFloat(longitude) + volunteerDelta }
+    }).limit(5); // Don't spam, just alert the 5 closest ones
+
+    const volunteerMessage = `🆘 COMMUNITY EMERGENCY 🆘\nA Veera user nearby needs help!\nLocation: ${mapsLink}\nPlease respond if you are nearby.`;
+
+    for (const v of nearbyVolunteers) {
+      smsPromises.push(
+        sendSMS(v.phone, volunteerMessage).catch(e => console.error(`[Volunteer SMS] Failed for ${v.phone}:`, e.message))
       );
     }
 
