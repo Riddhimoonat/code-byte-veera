@@ -42,29 +42,18 @@ export const userLoginControllers = async (req, res) => {
 
     if (!phone) return res.status(400).json({ message: "Phone number is required" });
 
-    const user = await UserModel.findOne({ phone: phone.toString() });
+    const user = await UserModel.findOne({ phone });
     if (!user) {
-      console.log(`❌ [AUTH LOGIN] User not found for phone: ${phone}`);
       return res.status(404).json({ message: "User not found. Please sign up first." });
     }
 
     // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // ATOMIC UPDATE: Use findOneAndUpdate to ensure the write is locked and confirmed
-    const updatedUser = await UserModel.findOneAndUpdate(
-      { phone: phone.toString() },
-      { 
-        $set: { 
-          otp: otpCode, 
-          otpExpires: new Date(Date.now() + 60 * 60 * 1000) // Increase to 1hr for dev stability
-        } 
-      },
-      { new: true }
-    );
+    user.otp = otpCode;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiry
+    await user.save();
 
     console.log(`🔐 [OTP DEBUG] Code for ${phone}: ${otpCode}`);
-    console.log(`[AUTH DEBUG] DB CONFIRMED -> UserID: ${updatedUser._id}, OTP IN DB: ${updatedUser.otp}`);
 
     // Send original SMS via Twilio if configured
     if (twilioClient) {
@@ -100,32 +89,15 @@ export const verifyOtp = async (req, res) => {
     const { phone, otp } = req.body;
     console.log(`[AUTH] Verifying OTP for: ${phone}`);
 
-    // Fetch FRESH user from DB to ensure it sees the recently saved OTP
-    const user = await UserModel.findOne({ phone: phone.toString() }).lean();
-    const now = new Date();
-
-    if (!user) {
-        console.log(`❌ [VERIFY] No user found for phone: ${phone}`);
-        return res.status(401).json({ message: "Invalid or expired OTP." });
+    const user = await UserModel.findOne({ phone });
+    if (!user || user.otp !== otp || new Date() > user.otpExpires) {
+      return res.status(401).json({ message: "Invalid or expired OTP." });
     }
 
-    console.log(`[VERIFY TRACE] DB STATE -> PHONE: ${user.phone}, OTP: ${user.otp}, EXP: ${user.otpExpires}`);
-    
-    const isMatch = !!user.otp && !!otp && user.otp.toString() === otp.toString();
-    const isExpired = user.otpExpires && now > new Date(user.otpExpires);
-
-    if (!isMatch) {
-      console.log(`❌ [VERIFY] Mismatch for ${phone}. Received: ${otp}, Stored: ${user.otp}`);
-      return res.status(401).json({ message: "Incorrect OTP code." });
-    }
-
-    if (isExpired) {
-      console.log(`❌ [VERIFY] Expired for ${phone}. Now: ${now.toISOString()}, Expiry: ${new Date(user.otpExpires).toISOString()}`);
-      return res.status(401).json({ message: "OTP has expired." });
-    }
-
-    // Since we used .lean(), we need a new instance for saving or use updateOne
-    await UserModel.updateOne({ _id: user._id }, { $set: { otp: null, otpExpires: null } });
+    // Clear OTP after successful use
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
 
     const token = jwt.sign(
       { id: user._id },
@@ -155,7 +127,52 @@ export const getMe = async (req, res) => {
   try {
     const user = await UserModel.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
-    return res.status(200).json({ success: true, user });
+    return res.status(200).json({ 
+      success: true, 
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        isVolunteer: user.isVolunteer || false
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ─── VOLUNTEER MODE ───────────────────────────────────────────────────────────
+export const toggleVolunteer = async (req, res) => {
+  try {
+    const { isVolunteer } = req.body;
+    const user = await UserModel.findByIdAndUpdate(
+      req.userId,
+      { isVolunteer: !!isVolunteer },
+      { new: true }
+    );
+    
+    console.log(`[USER] Volunteer mode toggled to ${isVolunteer} for ${user.phone}`);
+    return res.status(200).json({ success: true, isVolunteer: user.isVolunteer });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ─── UPDATE LOCATION (For Volunteers) ─────────────────────────────────────────
+export const updateLocation = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    if (latitude == null || longitude == null) return res.status(400).json({ message: "Coordinates required" });
+
+    // MongoDB GeoJSON expects [longitude, latitude]
+    await UserModel.findByIdAndUpdate(req.userId, {
+      lastLocation: {
+        type: 'Point',
+        coordinates: [parseFloat(longitude), parseFloat(latitude)]
+      }
+    });
+
+    return res.status(200).json({ success: true });
   } catch (error) {
     return res.status(500).json({ message: "Internal server error" });
   }

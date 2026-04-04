@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../constants';
+import { STORAGE_KEYS, API_PATHS } from '../constants';
 import type {
   RiskScoreRequest,
   RiskScoreResponse,
@@ -147,6 +147,19 @@ export async function fetchContactsFromBackend(): Promise<EmergencyContact[]> {
     phone: c.phone,
     relationship: c.relationship
   }));
+}
+
+// ─── VOLUNTEER API ────────────────────────────────────────────────────────────
+export async function toggleVolunteerMode(isVolunteer: boolean): Promise<boolean> {
+  const { data } = await apiClient.post<{ success: boolean; isVolunteer: boolean }>(
+    API_PATHS.TOGGLE_VOLUNTEER,
+    { isVolunteer }
+  );
+  return data.isVolunteer;
+}
+
+export async function updateVolunteerLocation(latitude: number, longitude: number): Promise<void> {
+  await apiClient.post(API_PATHS.UPDATE_LOCATION, { latitude, longitude });
 }
 
 export default apiClient;

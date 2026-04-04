@@ -1,6 +1,5 @@
 import { getRiskScore } from '../services/ml.service.js';
 import PoliceStation from '../models/PoliceStation.model.js';
-import CommunityReport from '../models/communityReport.model.js';
 import { findNearestStation } from '../services/haversine.service.js';
 
 // POST /api/risk-score/nearest-stations
@@ -45,24 +44,7 @@ const getRiskScoreHandler = async (req, res) => {
     }
 
     const ts = timestamp || new Date().toISOString();
-    let result = await getRiskScore(latitude, longitude, ts, is_isolated ?? false);
-
-    // 🔥 Dynamic Intelligence: Check for community reports within 500m
-    const nearReports = await CommunityReport.find({
-      'location.latitude': { $gt: latitude - 0.005, $lt: parseFloat(latitude) + 0.005 },
-      'location.longitude': { $gt: longitude - 0.005, $lt: parseFloat(longitude) + 0.005 }
-    }).sort({ createdAt: -1 });
-
-    if (nearReports.length > 0) {
-      // Boost risk by 10 points per recent report (max 100)
-      result.risk_score = Math.min(100, result.risk_score + (nearReports.length * 10));
-      if (result.risk_score > 70) result.risk_category = 'High';
-      
-      // Inject alert icons or notices into the factors list
-      nearReports.forEach(r => {
-        result.risk_factors.unshift(`⚠️ COMMUNITY: ${r.type} reported here recently`);
-      });
-    }
+    const result = await getRiskScore(latitude, longitude, ts, is_isolated ?? false);
 
     res.json({ success: true, data: result });
   } catch (err) {

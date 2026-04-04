@@ -6,7 +6,6 @@ import { findNearestStation } from '../services/haversine.service.js';
 import { sendSMS } from '../services/twilio.service.js';
 import { getRiskScore } from '../services/ml.service.js';
 import { emitSOSNew } from '../services/socket.service.js';
-import UserModel from '../models/auth.model.js';
 
 // POST /api/sos
 const triggerSOS = async (req, res) => {
@@ -46,6 +45,20 @@ const triggerSOS = async (req, res) => {
       ? `🚨 SOS ALERT\nUser at ${mapsLink}\nRisk: ${(risk_score * 100).toFixed(0)}%\nPlease respond immediately.`
       : null;
 
+    // FIND NEARBY VOLUNTEERS (5km radius)
+    const nearbyVolunteers = await UserModel.find({
+      isVolunteer: true,
+      _id: { $ne: req.userId }, // Don't notify the victim themselves
+      lastLocation: {
+        $near: {
+          $geometry: { type: "Point", coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+          $maxDistance: 5000 // 5km in meters
+        }
+      }
+    }).limit(10); // Notify up to 10 nearest people
+
+    console.log(`[SOS] Found ${nearbyVolunteers.length} volunteers nearby.`);
+
     // Send SMS to emergency contacts + nearest station (parallel)
     const smsPromises = [];
 
@@ -77,22 +90,6 @@ const triggerSOS = async (req, res) => {
       );
     }
 
-    // 🦸 COMMUNITY VOLUNTEERS: Alert nearby first-responders (2km radius)
-    const volunteerDelta = 0.02; // ~2km
-    const nearbyVolunteers = await UserModel.find({
-      isVolunteer: true,
-      'lastLocation.latitude': { $gt: latitude - volunteerDelta, $lt: parseFloat(latitude) + volunteerDelta },
-      'lastLocation.longitude': { $gt: longitude - volunteerDelta, $lt: parseFloat(longitude) + volunteerDelta }
-    }).limit(5); // Don't spam, just alert the 5 closest ones
-
-    const volunteerMessage = `🆘 COMMUNITY EMERGENCY 🆘\nA Veera user nearby needs help!\nLocation: ${mapsLink}\nPlease respond if you are nearby.`;
-
-    for (const v of nearbyVolunteers) {
-      smsPromises.push(
-        sendSMS(v.phone, volunteerMessage).catch(e => console.error(`[Volunteer SMS] Failed for ${v.phone}:`, e.message))
-      );
-    }
-
     // Fire and forget — don't block the response
     Promise.allSettled(smsPromises);
 
@@ -103,6 +100,20 @@ const triggerSOS = async (req, res) => {
       distanceKm: nearest?.distanceKm ?? null,
       risk_score,
     });
+
+    // Notify volunteers via socket
+    if (nearbyVolunteers.length > 0) {
+      import('../services/socket.service.js').then(({ emitSOSVolunteer }) => {
+        nearbyVolunteers.forEach(v => {
+           emitSOSVolunteer(v._id.toString(), {
+              event_id: sosEvent._id,
+              latitude,
+              longitude,
+              risk_score
+           });
+        });
+      });
+    }
 
     res.status(201).json({
       success: true,

@@ -16,6 +16,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, STORAGE_KEYS, SOS_HOLD_DURATION_MS } from '../constants';
 import { RootStackParamList } from '../types';
+import { toggleVolunteerMode, updateVolunteerLocation } from '../services/api';
+import { useLocation } from '../hooks/useLocation';
 
 const SOS_DURATIONS = [1000, 2000, 3000, 4000, 5000];
 
@@ -23,21 +25,49 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
   const [userName, setUserName] = useState('');
   const [userPhone, setUserPhone] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [volunteerEnabled, setVolunteerEnabled] = useState(false);
   const [sosDuration, setSosDuration] = useState(SOS_HOLD_DURATION_MS);
   const [isSaving, setIsSaving] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     (async () => {
-      const [n, phone, duration] = await Promise.all([
+      const [n, phone, duration, vol] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.USER_NAME),
         AsyncStorage.getItem(STORAGE_KEYS.USER_PHONE),
-        AsyncStorage.getItem(STORAGE_KEYS.SOS_SENSITIVITY)
+        AsyncStorage.getItem(STORAGE_KEYS.SOS_SENSITIVITY),
+        AsyncStorage.getItem(STORAGE_KEYS.VOLUNTEER_ENABLED),
       ]);
       if (n) setUserName(n);
       if (phone) setUserPhone(phone);
       if (duration) setSosDuration(parseInt(duration, 10));
+      if (vol) setVolunteerEnabled(vol === 'true');
     })();
   }, []);
+
+  const handleToggleVolunteer = async (val: boolean) => {
+    try {
+      setVolunteerEnabled(val);
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEYS.VOLUNTEER_ENABLED, val.toString()),
+        toggleVolunteerMode(val)
+      ]);
+      
+      if (val && location.latitude) {
+        updateVolunteerLocation(location.latitude, location.longitude!);
+      }
+
+      Alert.alert(
+        val ? 'Volunteer Mode On' : 'Volunteer Mode Off',
+        val 
+          ? 'You will now receive alerts for nearby SOS events. Your location is periodically synced securely.' 
+          : 'You will no longer receive nearby community alerts.'
+      );
+    } catch (e) {
+      Alert.alert('Error', 'Failed to change responder status.');
+      setVolunteerEnabled(!val);
+    }
+  };
 
   const handleSave = async () => {
     if (!userName.trim()) {
@@ -138,6 +168,26 @@ export default function SettingsScreen({ navigation }: { navigation: NativeStack
           <Text style={styles.noteText}>
             Note: Changes take effect on next app restart.
           </Text>
+        </View>
+
+        {/* ── Community Responder ─────────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>COMMUNITY RESPONDER</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Ionicons name="people-circle-outline" size={24} color={COLORS.success} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Volunteer Safety Mode</Text>
+              <Text style={styles.sublabel}>
+                Receive SOS alerts from nearby users (within 5km). Help keep your community safe.
+              </Text>
+            </View>
+            <Switch
+              value={volunteerEnabled}
+              onValueChange={handleToggleVolunteer}
+              trackColor={{ false: COLORS.border, true: COLORS.success }}
+              thumbColor="#fff"
+            />
+          </View>
         </View>
 
         {/* ── Notifications ───────────────────────────────────────────────── */}

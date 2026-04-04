@@ -19,6 +19,12 @@ const initSocket = (server) => {
   io.on('connection', (socket) => {
     console.log(`[Socket.io] Client connected: ${socket.id}`);
 
+    // Allow users to join their own room for directed alerts
+    socket.on('join', (userId) => {
+      socket.join(userId.toString());
+      console.log(`[Socket.io] User ${userId} joined their personal room.`);
+    });
+
     socket.on('disconnect', () => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}`);
     });
@@ -52,4 +58,15 @@ const emitSOSUpdated = (data) => {
   io.emit('sos:updated', data);
 };
 
-export { initSocket, emitSOSNew, emitSOSUpdated };
+/**
+ * Emit a nearby SOS alert to a specific volunteer user.
+ * @param {string} userId 
+ * @param {Object} data 
+ */
+const emitSOSVolunteer = (userId, data) => {
+  if (!io) return;
+  // Send specifically to the user's room
+  io.to(userId).emit('sos:volunteer_nearby', data);
+};
+
+export { initSocket, emitSOSNew, emitSOSUpdated, emitSOSVolunteer };

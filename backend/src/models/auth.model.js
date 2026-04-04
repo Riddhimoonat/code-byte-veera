@@ -11,6 +11,10 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    otp: {
+        type: String,
+        default: null
+    },
     otpExpires: {
         type: Date,
         default: null
@@ -20,12 +24,19 @@ const userSchema = new mongoose.Schema({
         default: false
     },
     lastLocation: {
-        latitude: Number,
-        longitude: Number,
-        updatedAt: { type: Date, default: Date.now }
-    },
-    pushToken: String
-}, { collection: 'veera_shield_users' });
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number], // [longitude, latitude]
+            default: [0, 0]
+        }
+    }
+}, { collection: 'veera_shield_users', timestamps: True });
+
+userSchema.index({ lastLocation: '2dsphere' });
 
 const UserModel = mongoose.model("User", userSchema)
 

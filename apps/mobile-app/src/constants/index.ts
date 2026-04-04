@@ -94,12 +94,16 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN: '@veera/auth_token',
   LAST_RISK_SCORE: '@veera/last_risk_score',
   SOS_SENSITIVITY: '@veera/sos_sensitivity',
+  VOLUNTEER_ENABLED: '@veera/volunteer_enabled',
 };
 
 // ─── Backend API Endpoints ─────────────────────────────────────────────────────
 // Base URL is read from EXPO_PUBLIC_API_BASE_URL env var at runtime.
 // These are the path suffixes only.
 export const API_PATHS = {
+  ME: '/auth/me',
+  TOGGLE_VOLUNTEER: '/auth/toggle-volunteer',
+  UPDATE_LOCATION: '/auth/location',
   RISK_SCORE: '/risk-score',
   SOS: '/sos',
   CONTACTS_GET: '/contacts',
