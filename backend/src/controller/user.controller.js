@@ -98,15 +98,17 @@ export const verifyOtp = async (req, res) => {
         return res.status(401).json({ message: "Invalid or expired OTP." });
     }
 
-    const isMatch = user.otp && user.otp.toString() === otp.toString();
-    const isExpired = user.otpExpires && now > user.otpExpires;
+    const isMatch = !!user.otp && !!otp && user.otp.toString() === otp.toString();
+    const isExpired = user.otpExpires && now > new Date(user.otpExpires);
 
-    console.log(`[VERIFY DEBUG] User: ${user.phone}, Match: ${isMatch}, Expired: ${isExpired} (Now: ${now.toISOString()}, Expiry: ${user.otpExpires?.toISOString()})`);
+    console.log(`[VERIFY TRACE] Phone: ${user.phone}, CodeReceived: ${otp}, CodeStored: ${user.otp}, Match: ${isMatch}, Expired: ${isExpired}`);
 
-    if (!isMatch || isExpired) {
-      return res.status(401).json({ 
-        message: isExpired ? "OTP has expired." : "Incorrect OTP code." 
-      });
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect OTP code." });
+    }
+
+    if (isExpired) {
+      return res.status(401).json({ message: "OTP has expired." });
     }
 
     // Clear OTP after successful use
