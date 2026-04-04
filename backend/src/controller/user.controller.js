@@ -42,8 +42,9 @@ export const userLoginControllers = async (req, res) => {
 
     if (!phone) return res.status(400).json({ message: "Phone number is required" });
 
-    const user = await UserModel.findOne({ phone });
+    const user = await UserModel.findOne({ phone: phone.toString() });
     if (!user) {
+      console.log(`❌ [AUTH LOGIN] User not found for phone: ${phone}`);
       return res.status(404).json({ message: "User not found. Please sign up first." });
     }
 
@@ -89,9 +90,23 @@ export const verifyOtp = async (req, res) => {
     const { phone, otp } = req.body;
     console.log(`[AUTH] Verifying OTP for: ${phone}`);
 
-    const user = await UserModel.findOne({ phone });
-    if (!user || user.otp !== otp || new Date() > user.otpExpires) {
-      return res.status(401).json({ message: "Invalid or expired OTP." });
+    const user = await UserModel.findOne({ phone: phone.toString() });
+    const now = new Date();
+
+    if (!user) {
+        console.log(`❌ [VERIFY] No user found for phone: ${phone}`);
+        return res.status(401).json({ message: "Invalid or expired OTP." });
+    }
+
+    const isMatch = user.otp && user.otp.toString() === otp.toString();
+    const isExpired = user.otpExpires && now > user.otpExpires;
+
+    console.log(`[VERIFY DEBUG] User: ${user.phone}, Match: ${isMatch}, Expired: ${isExpired} (Now: ${now.toISOString()}, Expiry: ${user.otpExpires?.toISOString()})`);
+
+    if (!isMatch || isExpired) {
+      return res.status(401).json({ 
+        message: isExpired ? "OTP has expired." : "Incorrect OTP code." 
+      });
     }
 
     // Clear OTP after successful use
