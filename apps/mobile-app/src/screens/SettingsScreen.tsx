@@ -25,8 +25,12 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     (async () => {
-      const n = await AsyncStorage.getItem(STORAGE_KEYS.USER_NAME);
+      const [n, duration] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.USER_NAME),
+        AsyncStorage.getItem(STORAGE_KEYS.SOS_SENSITIVITY)
+      ]);
       if (n) setUserName(n);
+      if (duration) setSosDuration(parseInt(duration, 10));
     })();
   }, []);
 
@@ -36,9 +40,16 @@ export default function SettingsScreen() {
       return;
     }
     setIsSaving(true);
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, userName.trim());
+    try {
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, userName.trim()),
+        AsyncStorage.setItem(STORAGE_KEYS.SOS_SENSITIVITY, sosDuration.toString())
+      ]);
+      Alert.alert('Saved', 'Your settings have been saved.');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save settings.');
+    }
     setIsSaving(false);
-    Alert.alert('Saved', 'Your settings have been saved.');
   };
 
   const handleLogout = () => {

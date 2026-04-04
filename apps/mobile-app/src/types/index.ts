@@ -40,9 +40,15 @@ export interface RiskScoreRequest {
  * What the backend returns after scoring.
  */
 export interface RiskScoreResponse {
-  risk_level: number;           // 0–100
+  risk_score?: number;          // 0-100 (returned by Python API)
+  risk_level?: number;          // backwards compatibility
   risk_category: 'Low' | 'Medium' | 'High' | 'Critical';
   risk_factors: string[];
+}
+
+export interface RiskMapPoint extends RiskScoreResponse {
+  latitude: number;
+  longitude: number;
 }
 
 // ─── SOS ───────────────────────────────────────────────────────────────────────

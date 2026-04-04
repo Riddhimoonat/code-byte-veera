@@ -1,32 +1,11 @@
 /**
  * App.tsx — Navigation root for Veera mobile app
- *
- * Architecture:
- *   Onboarding (Stack) → MainTabs (Bottom Tab Navigator)
- *     ├── Home
- *     ├── Contacts
- *     ├── RiskMap
- *     └── Settings
- *
- * WHY Stack + Tabs vs the prototype's 2-screen stack:
- * The spec defines 4 independent screens, each with their own responsibility.
- * Bottom tabs let the user switch freely without navigation history clutter.
- * The onboarding stack captures the user's name before entering the app,
- * stored in AsyncStorage so it persists across restarts.
- *
- * Background task MUST be imported here at the top level — BEFORE any
- * component mounts — because expo-task-manager requires task definitions
- * to exist when the JS bundle first loads (including background launches
- * when the OS wakes the app for a background fetch).
  */
 
-// ─── CRITICAL: import background task definitions FIRST ───────────────────────
 import './src/tasks/backgroundTasks';
-
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
-// @ts-ignore: React Navigation 6 module resolution force-fix
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -39,8 +18,21 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  ScrollView,
+  Alert,
+  Dimensions,
 } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withTiming, 
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 import HomeScreen from './src/screens/HomeScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
@@ -52,6 +44,8 @@ import type { RootStackParamList, MainTabParamList } from './src/types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const { width, height } = Dimensions.get('window');
+
 // ─── Bottom Tab Navigator ──────────────────────────────────────────────────────
 function MainTabs() {
   return (
@@ -62,86 +56,184 @@ function MainTabs() {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 65,
+          paddingBottom: 10,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarIcon: ({ color, size, focused }: { color: string; size: number; focused: boolean }) => {
-          const icons: Record<keyof MainTabParamList, { active: any; inactive: any }> = {
-            Home:     { active: 'shield',          inactive: 'shield-outline' },
-            Contacts: { active: 'people',          inactive: 'people-outline' },
-            RiskMap:  { active: 'map',             inactive: 'map-outline' },
-            Settings: { active: 'settings',        inactive: 'settings-outline' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarIcon: ({ color, size, focused }) => {
+          const icons: Record<string, string> = {
+            Home:     focused ? 'shield'   : 'shield-outline',
+            Contacts: focused ? 'people'   : 'people-outline',
+            RiskMap:  focused ? 'map'      : 'map-outline',
+            Settings: focused ? 'settings' : 'settings-outline',
           };
-          const cfg = icons[route.name as keyof MainTabParamList];
-          const name = (focused ? cfg?.active : cfg?.inactive) ?? 'ellipse';
-          return <Ionicons name={name} size={size} color={color} />;
+          return <Ionicons name={icons[route.name] as any || 'ellipse'} size={size} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="Contacts" component={ContactsScreen} options={{ tabBarLabel: 'Contacts' }} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Contacts" component={ContactsScreen} />
       <Tab.Screen name="RiskMap" component={RiskMapScreen} options={{ tabBarLabel: 'Map' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: 'Settings' }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
-function OnboardingScreen({ navigation }: { navigation: NativeStackNavigationProp<RootStackParamList, 'Onboarding'> }) {
+// ─── AUTH SCREEN (Integrated & Animated) ──────────────────────────────────────────
+function AuthScreen({ navigation }: { navigation: NativeStackNavigationProp<RootStackParamList, 'Onboarding'> }) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [name, setName] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleProceed = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError('Please enter your name to continue.');
+  // Background Animation - Random Floating Effect
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const sc = useSharedValue(1);
+  const op = useSharedValue(0.4);
+
+  useEffect(() => {
+    // Horizontal movement
+    tx.value = withRepeat(
+      withTiming(1, { duration: 7000, easing: Easing.inOut(Easing.sin) }),
+      -1, true
+    );
+    // Vertical movement
+    ty.value = withRepeat(
+      withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }),
+      -1, true
+    );
+    // Pulse effect
+    sc.value = withRepeat(
+      withTiming(1.5, { duration: 5000, easing: Easing.inOut(Easing.ease) }),
+      -1, true
+    );
+    // Opacity pulse
+    op.value = withRepeat(
+      withTiming(0.7, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+      -1, true
+    );
+  }, []);
+
+  const animatedGlow = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: interpolate(tx.value, [0, 1], [-width * 0.2, width * 0.7]) },
+        { translateY: interpolate(ty.value, [0, 1], [-height * 0.1, height * 0.8]) },
+        { scale: sc.value },
+      ],
+      opacity: op.value,
+    };
+  });
+
+  const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://veera-final-bolt.loca.lt/api';
+
+  const handleAuth = async () => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit number.');
       return;
     }
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, trimmed);
-    navigation.replace('MainTabs');
+    if (!isLogin && !name.trim()) {
+      Alert.alert('Name Required', 'Please enter your name for registration.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const endpoint = isLogin ? `${API_BASE}/auth/login` : `${API_BASE}/auth/register`;
+      const payload = isLogin ? { phone: phoneNumber } : { phone: phoneNumber, name: name.trim() };
+      
+      console.log(`[AUTH] Calling ${endpoint} with`, payload);
+      const response = await axios.post(endpoint, payload);
+      
+      const { user, token } = response.data;
+      
+      if (user?.name) await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, user.name);
+      if (user?.phone) await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, user.phone);
+      if (token) await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+      
+      navigation.replace('MainTabs');
+    } catch (err: any) {
+      console.log("❌ [AUTH ERROR]", err?.response?.data || err.message);
+      const errorMsg = err?.response?.data?.message || "Failed to connect to Veera servers.";
+      Alert.alert(isLogin ? 'Login Failed' : 'Registration Failed', errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.onboardingRoot}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView 
-        contentContainerStyle={{ flexGrow: 1 }} 
-        keyboardShouldPersistTaps="handled" 
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.onboardingContent}>
-          {/* Logo */}
-          <View style={styles.logoRow}>
-            <Ionicons name="shield" size={42} color={COLORS.primary} />
-            <Text style={styles.appName}>VEERA</Text>
-          </View>
-          <Text style={styles.appTagline}>Your personal safety companion</Text>
+    <KeyboardAvoidingView style={styles.authRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <View style={styles.authContent}>
+          
+          <Animated.View 
+            style={[styles.glow, animatedGlow]} 
+            pointerEvents="none" 
+          />
 
-          {/* Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.inputLabel}>Hi! What's your name?</Text>
-            <TextInput
-              style={[styles.input, error ? styles.inputErr : null]}
-              placeholder="Enter your full name"
-              placeholderTextColor={COLORS.textMuted}
-              value={name}
-              onChangeText={(t) => { setName(t); setError(''); }}
-              autoCapitalize="words"
-              returnKeyType="done"
-              onSubmitEditing={handleProceed}
-            />
-            {error ? <Text style={styles.errText}>{error}</Text> : null}
-            <TouchableOpacity style={styles.proceedBtn} onPress={handleProceed}>
-              <Text style={styles.proceedText}>Get Started →</Text>
+          <View style={styles.topSection}>
+            <Ionicons name="shield-checkmark" size={60} color={COLORS.primary} />
+            <Text style={styles.authHeader}>VEERA</Text>
+            <Text style={styles.authSub}>PROACTIVE PERSONAL SECURITY</Text>
+          </View>
+
+          <View style={styles.authCard}>
+            <View style={styles.modeTabs}>
+              <TouchableOpacity style={[styles.tab, isLogin && styles.tabActive]} onPress={() => setIsLogin(true)}>
+                <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>LOG IN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.tab, !isLogin && styles.tabActive]} onPress={() => setIsLogin(false)}>
+                <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>SIGN UP</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Registered Mobile Number</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="call-outline" size={20} color={COLORS.textMuted} style={{ marginRight: 12 }} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. 9876543210"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+              </View>
+
+              {!isLogin && (
+                <>
+                  <Text style={[styles.inputLabel, { marginTop: 15 }]}>Full Name</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="person-outline" size={20} color={COLORS.textMuted} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Jane Doe"
+                      placeholderTextColor={COLORS.textMuted}
+                      value={name}
+                      onChangeText={setName}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+
+            <TouchableOpacity style={styles.mainBtn} onPress={handleAuth} disabled={isLoading}>
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.mainBtnText}>{isLogin ? 'ENTER PROTECTED ZONE' : 'CREATE PROTECTED PROFILE'}</Text>
+              )}
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.privacyNote}>
-            🔒 Your name is stored only on this device. Veera never shares personal data.
+          <Text style={styles.footerNote}>
+            🔒 Your security is our absolute priority.{'\n'}Data is encrypted end-to-end.
           </Text>
         </View>
       </ScrollView>
@@ -149,13 +241,11 @@ function OnboardingScreen({ navigation }: { navigation: NativeStackNavigationPro
   );
 }
 
-import { ActivityIndicator, ScrollView } from 'react-native';
-
 const CustomTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: COLORS.background,
+    background: '#000000',
     card: COLORS.surface,
     border: COLORS.border,
     text: COLORS.textPrimary,
@@ -166,30 +256,20 @@ const CustomTheme = {
 export default function App() {
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'MainTabs' | null>(null);
 
-  // Check if user has already onboarded
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEYS.USER_NAME).then((name) => {
-      setInitialRoute(name ? 'MainTabs' : 'Onboarding');
+    AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN).then((token) => {
+      setInitialRoute(token ? 'MainTabs' : 'Onboarding');
     });
   }, []);
 
-  if (!initialRoute) {
-    return (
-      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+  if (!initialRoute) return null;
 
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <NavigationContainer theme={CustomTheme}>
-        <Stack.Navigator
-          initialRouteName={initialRoute}
-          screenOptions={{ headerShown: false, animation: 'fade' }}
-        >
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
+          <Stack.Screen name="Onboarding" component={AuthScreen} />
           <Stack.Screen name="MainTabs" component={MainTabs} />
         </Stack.Navigator>
       </NavigationContainer>
@@ -198,72 +278,57 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  onboardingRoot: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  authRoot: { flex: 1, backgroundColor: '#000000' },
+  authContent: { flex: 1, paddingHorizontal: 25, justifyContent: 'center' },
+  topSection: { alignItems: 'center', marginBottom: 40, position: 'relative' },
+  glow: { 
+    position: 'absolute', 
+    top: 0,
+    left: 0,
+    width: 250, 
+    height: 250, 
+    borderRadius: 125, 
+    backgroundColor: COLORS.primaryGlow,
+    shadowColor: COLORS.primary,
+    shadowRadius: 80,
+    shadowOpacity: 1,
+    elevation: 30,
+    zIndex: -1 
   },
-  onboardingContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    gap: SPACING.md,
+  authHeader: { color: 'white', fontSize: 44, fontWeight: '900', letterSpacing: 8, marginTop: 10 },
+  authSub: { color: COLORS.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 5 },
+  authCard: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: 30,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: '#1C1C1E',
   },
-  logoRow: {
+  modeTabs: { flexDirection: 'row', gap: 15, marginBottom: 30 },
+  tab: { flex: 1, paddingVertical: 12, borderRadius: 15, alignItems: 'center' },
+  tabActive: { backgroundColor: '#1C1C1E' },
+  tabText: { color: COLORS.textMuted, fontWeight: '800', fontSize: 12, letterSpacing: 1 },
+  tabTextActive: { color: COLORS.primary },
+  inputGroup: { marginBottom: 30 },
+  inputLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginBottom: 12 },
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  appName: {
-    color: COLORS.primary,
-    fontSize: 40,
-    fontWeight: '900',
-    letterSpacing: 6,
-  },
-  appTagline: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    marginBottom: SPACING.lg,
-  },
-  inputCard: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#161618',
     borderRadius: 18,
-    padding: SPACING.lg,
-    gap: SPACING.sm,
+    paddingHorizontal: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#2C2C2E',
+    height: 60,
   },
-  inputLabel: {
-    color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  input: {
-    backgroundColor: COLORS.surfaceElevated,
-    color: COLORS.textPrimary,
-    padding: SPACING.md,
-    borderRadius: 10,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  inputErr: { borderColor: COLORS.danger },
-  errText: { color: COLORS.danger, fontSize: 12 },
-  proceedBtn: {
+  input: { flex: 1, color: 'white', fontSize: 16, fontWeight: '600' },
+  mainBtn: {
     backgroundColor: COLORS.primary,
-    padding: SPACING.md,
-    borderRadius: 12,
+    height: 65,
+    borderRadius: 20,
     alignItems: 'center',
-    marginTop: SPACING.xs,
+    justifyContent: 'center',
   },
-  proceedText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  privacyNote: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    maxWidth: 280,
-    lineHeight: 18,
-    marginTop: SPACING.lg,
-  },
+  mainBtnText: { color: 'white', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  footerNote: { color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 30, lineHeight: 18 },
 });

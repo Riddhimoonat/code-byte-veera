@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,55 +8,50 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { COLORS, SOS_HOLD_DURATION_MS, SOS_CANCEL_WINDOW_SECONDS, SPACING } from '../constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS, SOS_HOLD_DURATION_MS, SOS_CANCEL_WINDOW_SECONDS, STORAGE_KEYS } from '../constants';
 
-interface SOSButtonProps {
-  onSOSConfirmed: () => Promise<void>;
-  isSending: boolean;
-}
+export default function SOSButton({ onSOSConfirmed, isSending }: { onSOSConfirmed: () => Promise<void>, isSending: boolean }) {
+  const [isArmed, setIsArmed] = React.useState(false);
+  const [countdown, setCountdown] = React.useState(SOS_CANCEL_WINDOW_SECONDS);
+  const [isHolding, setIsHolding] = React.useState(false);
+  const [activeHoldDuration, setActiveHoldDuration] = React.useState(SOS_HOLD_DURATION_MS);
 
-/**
- * WHY THIS ARCHITECTURE:
- * The prototype used a plain TouchableOpacity with onPress — single tap = SOS.
- * This is dangerous: a user could accidentally trigger SOS by brushing the screen.
- *
- * The spec requires:
- *   1. Press AND HOLD for 3 seconds to arm  (delayLongPress equivalent)
- *   2. Then a 5-second cancel window before the API call fires
- *   3. Haptic feedback during hold so user knows it's working
- *
- * Implementation:
- *   - We use Pressable with onLongPress (delayLongPress={3000})
- *   - During hold, an animated ring fills (visual progress)
- *   - On long press success: modal opens with 5-second countdown
- *   - User can cancel; if no cancel, triggerSOS() is called at T=0
- */
-export default function SOSButton({ onSOSConfirmed, isSending }: SOSButtonProps) {
-  const [isArmed, setIsArmed] = useState(false);
-  const [countdown, setCountdown] = useState(SOS_CANCEL_WINDOW_SECONDS);
-  const [isHolding, setIsHolding] = useState(false);
+  const ringAnim = React.useRef(new Animated.Value(0)).current;
+  const countdownRef = React.useRef<any>(null);
+  const holdAnim = React.useRef<Animated.CompositeAnimation | null>(null);
 
-  const ringAnim = useRef(new Animated.Value(0)).current;
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const holdAnim = useRef<Animated.CompositeAnimation | null>(null);
+  // ── Load sensitivity on mount ──────────────────────────────────────────────
+  React.useEffect(() => {
+    const loadSensitivity = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.SOS_SENSITIVITY);
+        if (stored) {
+          setActiveHoldDuration(parseInt(stored, 10));
+        }
+      } catch (e) {
+        console.log("Error loading SOS sensitivity", e);
+      }
+    };
+    loadSensitivity();
+  }, []);
 
   // ── Start hold animation + haptics ─────────────────────────────────────────
-  const handlePressIn = useCallback(() => {
+  const handlePressIn = React.useCallback(() => {
     setIsHolding(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     holdAnim.current = Animated.timing(ringAnim, {
       toValue: 1,
-      duration: SOS_HOLD_DURATION_MS,
+      duration: activeHoldDuration || 3000,
       useNativeDriver: false,
     });
     holdAnim.current.start();
-  }, [ringAnim]);
+  }, [ringAnim, activeHoldDuration]);
 
-  // ── Cancel hold (released before 3s) ───────────────────────────────────────
-  const handlePressOut = useCallback(() => {
+  // ── Cancel hold ─────────────────────────────────────────────────────────────
+  const handlePressOut = React.useCallback(() => {
     setIsHolding(false);
     holdAnim.current?.stop();
     Animated.timing(ringAnim, {
@@ -66,30 +61,30 @@ export default function SOSButton({ onSOSConfirmed, isSending }: SOSButtonProps)
     }).start();
   }, [ringAnim]);
 
-  // ── 3-second hold completed: arm the SOS ───────────────────────────────────
-  const handleLongPress = useCallback(() => {
+  // ── Arm the SOS ─────────────────────────────────────────────────────────────
+  const handleLongPress = React.useCallback(() => {
     setIsHolding(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setIsArmed(true);
     setCountdown(SOS_CANCEL_WINDOW_SECONDS);
 
     let remaining = SOS_CANCEL_WINDOW_SECONDS;
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    
     countdownRef.current = setInterval(() => {
       remaining -= 1;
       setCountdown(remaining);
 
       if (remaining <= 0) {
-        clearInterval(countdownRef.current!);
+        if (countdownRef.current) clearInterval(countdownRef.current);
         setIsArmed(false);
         ringAnim.setValue(0);
-        // Fire the actual SOS
         onSOSConfirmed();
       }
     }, 1000);
   }, [onSOSConfirmed, ringAnim]);
 
-  // ── Cancel during countdown window ─────────────────────────────────────────
-  const handleCancel = useCallback(() => {
+  const handleCancel = React.useCallback(() => {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setIsArmed(false);
     setCountdown(SOS_CANCEL_WINDOW_SECONDS);
@@ -109,9 +104,7 @@ export default function SOSButton({ onSOSConfirmed, isSending }: SOSButtonProps)
 
   return (
     <>
-      {/* ── SOS BUTTON ─────────────────────────────────────────────────────── */}
       <View style={styles.wrapper}>
-        {/* Animated ring that fills as user holds */}
         {isHolding && (
           <Animated.View
             style={[
@@ -130,7 +123,7 @@ export default function SOSButton({ onSOSConfirmed, isSending }: SOSButtonProps)
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           onLongPress={handleLongPress}
-          delayLongPress={SOS_HOLD_DURATION_MS}
+          delayLongPress={activeHoldDuration || 3000}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           disabled={isSending}
         >
@@ -139,29 +132,22 @@ export default function SOSButton({ onSOSConfirmed, isSending }: SOSButtonProps)
           ) : (
             <>
               <Text style={styles.label}>SOS</Text>
-              <Text style={styles.hint}>Hold 3s</Text>
+              <Text style={styles.hint}>Hold {(activeHoldDuration || 3000) / 1000}s</Text>
             </>
           )}
         </Pressable>
       </View>
 
-      {/* ── 5-SECOND CANCEL MODAL ──────────────────────────────────────────── */}
-      <Modal
-        visible={isArmed}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-      >
+      <Modal visible={isArmed} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>🚨 SOS Arming</Text>
+            <Text style={styles.modalTitle}>🚨 SOS Alerting</Text>
             <Text style={styles.modalCountdown}>{countdown}</Text>
             <Text style={styles.modalBody}>
-              SOS will be sent in {countdown} second{countdown !== 1 ? 's' : ''}.{'\n'}
-              Emergency contacts and nearest police will be notified.
+              Sending emergency alerts in {countdown}s...
             </Text>
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-              <Text style={styles.cancelText}>✕  Cancel SOS</Text>
+              <Text style={styles.cancelText}>✕  CANCEL SOS</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -171,16 +157,8 @@ export default function SOSButton({ onSOSConfirmed, isSending }: SOSButtonProps)
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.xxl,
-  },
-  ring: {
-    position: 'absolute',
-    borderWidth: 4,
-    opacity: 0.6,
-  },
+  wrapper: { alignItems: 'center', justifyContent: 'center', marginTop: 40 },
+  ring: { position: 'absolute', borderWidth: 4, opacity: 0.6 },
   button: {
     width: 180,
     height: 180,
@@ -188,74 +166,28 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 12,
+    elevation: 20,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.6,
     shadowRadius: 16,
   },
-  buttonPressed: {
-    backgroundColor: COLORS.primaryDark,
-    transform: [{ scale: 0.96 }],
-  },
-  label: {
-    color: '#fff',
-    fontSize: 38,
-    fontWeight: '900',
-    letterSpacing: 4,
-  },
-  hint: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: 12,
-    marginTop: 4,
-    letterSpacing: 1,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  buttonPressed: { backgroundColor: COLORS.primaryDark, transform: [{ scale: 0.96 }] },
+  label: { color: '#fff', fontSize: 42, fontWeight: '900', letterSpacing: 4 },
+  hint: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
   modalCard: {
     backgroundColor: '#1a1a24',
-    borderRadius: 20,
-    padding: SPACING.xl,
-    width: '80%',
+    borderRadius: 24,
+    padding: 32,
+    width: '85%',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.critical,
   },
-  modalTitle: {
-    color: COLORS.critical,
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: SPACING.md,
-  },
-  modalCountdown: {
-    color: '#fff',
-    fontSize: 72,
-    fontWeight: '900',
-    lineHeight: 80,
-  },
-  modalBody: {
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.lg,
-    lineHeight: 22,
-  },
-  cancelBtn: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.textSecondary,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: 12,
-  },
-  cancelText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  modalTitle: { color: COLORS.critical, fontSize: 24, fontWeight: '900', marginBottom: 16 },
+  modalCountdown: { color: 'white', fontSize: 80, fontWeight: '900' },
+  modalBody: { color: '#9191a8', textAlign: 'center', marginVertical: 20, fontSize: 16 },
+  cancelBtn: { backgroundColor: '#2e2e3e', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 12 },
+  cancelText: { color: 'white', fontSize: 16, fontWeight: '800' },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,11 @@ import {
   Alert,
   StatusBar,
   RefreshControl,
+  TouchableOpacity,
+  Switch,
+  Linking,
+  Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +25,7 @@ import AddContactModal from '../components/AddContactModal';
 
 import { useLocation } from '../hooks/useLocation';
 import { useContacts } from '../hooks/useContacts';
-import { fetchRiskScore, triggerSOS } from '../services/api';
+import { triggerSOS } from '../services/api';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -33,6 +38,7 @@ export default function HomeScreen() {
   const location = useLocation();
   const { contacts, addContact } = useContacts();
 
+  // ── States ──────────────────────────────────────────────────────────────────
   const [userName, setUserName] = useState<string>('User');
   const [isSafetyActive, setIsSafetyActive] = useState(false);
   const [riskData, setRiskData] = useState<RiskScoreResponse | null>(null);
@@ -40,242 +46,379 @@ export default function HomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
 
-  // Load userName from storage on mount
+  // Dead-Man's Timer States
+  const [timerSeconds, setTimerSeconds] = useState(1200); 
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Initialization ──────────────────────────────────────────────────────────
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.USER_NAME).then((n) => {
       if (n) setUserName(n);
     });
     configureNotifications();
+    return () => {
+       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
   }, []);
 
-  // ── Poll risk score every 30s when in foreground (spec requirement) ─────────
-  // Background polling is handled by the background task (60s interval).
-  // This foreground poll updates the UI badge when the app is visible.
+  // ── Risk Polling (Direct ML API) ───────────────────────────────────────────
   useEffect(() => {
-    if (!isSafetyActive || !location.latitude) return;
+    if (!location.latitude) return;
 
     const poll = async () => {
       try {
-        const result = await fetchRiskScore({
-          latitude: location.latitude!,
-          longitude: location.longitude!,
-          timestamp: new Date().toISOString(),
+        const axios = require('axios');
+        const payload = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          hour: new Date().getHours(),
+        };
+        const response = await axios.post('https://veera-ml-api.onrender.com/predict', payload, { timeout: 8000 });
+        const data = response.data;
+        setRiskData({
+          risk_score: data.risk_score,
+          risk_category: (data.risk_level || data.risk_status || 'Medium').charAt(0).toUpperCase() + (data.risk_level || data.risk_status || 'Medium').slice(1).toLowerCase() as any,
+          risk_factors: data.risk_factors || [],
         });
-        setRiskData(result);
-      } catch (_) {
-        // Silent fail — badge simply stays at last known value
+      } catch (err: any) {
+        console.log("[ML Direct Fetch Error]", err.message);
       }
     };
 
-    poll(); // immediate on activate
-    const interval = setInterval(poll, 30_000); // then every 30s
+    poll(); 
+    const interval = setInterval(poll, 300_000); 
     return () => clearInterval(interval);
-  }, [isSafetyActive, location.latitude, location.longitude]);
+  }, [location.latitude, location.longitude]);
 
-  // ── Safety Mode toggle ───────────────────────────────────────────────────────
-  const handleSafetyToggle = useCallback(async () => {
-    try {
-      if (!isSafetyActive) {
-        await startBackgroundLocationTracking();
-        setIsSafetyActive(true);
+  // ── Animations ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isSafetyActive) {
+      if (timerSeconds < 60) {
+        // High urgency pulse & shake
+        Animated.parallel([
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(pulseAnim, { toValue: 1.15, duration: 300, useNativeDriver: true }),
+              Animated.timing(pulseAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+            ])
+          ),
+          Animated.loop(
+             Animated.sequence([
+                Animated.timing(shakeAnim, { toValue: 2, duration: 50, useNativeDriver: true }),
+                Animated.timing(shakeAnim, { toValue: -2, duration: 50, useNativeDriver: true }),
+                Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+             ])
+          )
+        ]).start();
+      } else if (timerSeconds < 300) {
+        // Medium urgency steady pulse
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
+            Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+          ])
+        ).start();
       } else {
-        await stopBackgroundLocationTracking();
-        setIsSafetyActive(false);
-        setRiskData(null);
+        pulseAnim.setValue(1);
+        shakeAnim.setValue(0);
       }
-    } catch (e: any) {
-      Alert.alert('Permission Required', e.message);
+    } else {
+      pulseAnim.setValue(1);
+      shakeAnim.setValue(0);
     }
-  }, [isSafetyActive]);
+  }, [isSafetyActive, timerSeconds < 60, timerSeconds < 300]);
 
-  // ── SOS confirmed (fires after 5-second cancel window in SOSButton) ──────────
-  /**
-   * WHY: No native SMS here. We POST to backend; backend dispatches Twilio SMS
-   * to all contacts AND nearest police station, inserts sos_events row,
-   * and emits socket.io event to the admin dashboard.
-   */
-  const handleSOSConfirmed = useCallback(async () => {
+  // ── Safety Mode & Timer Logic ────────────────────────────────────────────────
+  const stopTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  }, []);
+
+  const handleSOSConfirmed = useCallback(async (isAutoTrigger = false) => {
     if (!location.latitude || !location.longitude) {
       Alert.alert('Location Unavailable', 'Cannot send SOS without location fix.');
       return;
     }
+    
+    setIsSafetyActive(false);
+    stopTimer();
+
     setIsSendingSOS(true);
     try {
-      const result = await triggerSOS({
+      triggerSOS({
         latitude: location.latitude,
         longitude: location.longitude,
+      }).catch(() => {});
+
+      const typeStr = isAutoTrigger ? "[TIMER EXPIRED] " : "";
+      const smsBody = `🚨 ${typeStr}VEERA SOS ALERT 🚨\nI haven't checked in as safe.\nLocation: https://maps.google.com/?q=${location.latitude},${location.longitude}`;
+      
+      const phoneNumbers = ['100', '112'];
+      contacts.forEach(c => {
+        if (c.phone) phoneNumbers.push(c.phone);
       });
-      Alert.alert(
-        '🚨 SOS Sent',
-        `${result.contacts_notified} contact(s) notified.\nNearest station: ${result.police_station_notified}`,
-        [{ text: 'OK' }]
-      );
+
+      const separator = Platform.OS === 'ios' ? '&' : '?';
+      const smsUrl = `sms:${phoneNumbers.join(',')}${separator}body=${encodeURIComponent(smsBody)}`;
+
+      const supported = await Linking.canOpenURL(smsUrl);
+      if (supported) {
+        await Linking.openURL(smsUrl);
+      }
     } catch (e: any) {
-      Alert.alert('SOS Failed', e.message ?? 'Could not reach backend. Please call 100.');
+      Alert.alert('SOS Failed', e.message);
     } finally {
       setIsSendingSOS(false);
     }
-  }, [location.latitude, location.longitude]);
+  }, [location.latitude, location.longitude, contacts, stopTimer]);
 
-  // ── Pull-to-refresh ──────────────────────────────────────────────────────────
-  const handleRefresh = useCallback(async () => {
-    if (!location.latitude) return;
-    setIsRefreshing(true);
-    try {
-      const result = await fetchRiskScore({
-        latitude: location.latitude,
-        longitude: location.longitude!,
-        timestamp: new Date().toISOString(),
+  const startTimer = useCallback((durationSeconds: number) => {
+    stopTimer();
+    setTimerSeconds(durationSeconds);
+    
+    timerIntervalRef.current = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          stopTimer();
+          handleSOSConfirmed(true);
+          return 0;
+        }
+        return prev - 1;
       });
-      setRiskData(result);
-    } catch (_) {}
-    setIsRefreshing(false);
-  }, [location.latitude, location.longitude]);
+    }, 1000);
+  }, [stopTimer, handleSOSConfirmed]);
 
-  const riskCategory: RiskCategory =
-    (riskData?.risk_category as RiskCategory) ?? 'Unknown';
+  const handleSafetyToggle = useCallback(async (newValue: boolean) => {
+     if (newValue) {
+        if (location.latitude) {
+            const trackingBody = `🛡️ [VEERA PROTECTION ACTIVE]\nI've started a safety session. Track me here: https://maps.google.com/?q=${location.latitude},${location.longitude}\n(Do not worry, this is proactive)`;
+            
+            const numbers = ['100', '112'];
+            contacts.forEach(c => { if(c.phone) numbers.push(c.phone) });
+            
+            const separator = Platform.OS === 'ios' ? '&' : '?';
+            const smsUrl = `sms:${numbers.join(',')}${separator}body=${encodeURIComponent(trackingBody)}`;
+            
+            Alert.alert(
+                "Broadcast Location", 
+                `Broadcasting live tracking to ${numbers.length} recipients (including 100/112). Send link now?`,
+                [
+                    { text: "Skip", onPress: () => {} },
+                    { text: "Send Link", onPress: () => Linking.openURL(smsUrl) }
+                ]
+            );
+        }
 
-  const currentHour = new Date().getHours();
-  const greeting =
-    currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
+        setIsSafetyActive(true);
+        startTimer(1200); 
+        try {
+           await startBackgroundLocationTracking();
+        } catch (e) {}
+     } else {
+        setIsSafetyActive(false);
+        stopTimer();
+        try {
+           await stopBackgroundLocationTracking();
+        } catch (e) {}
+     }
+  }, [location.latitude, location.longitude, startTimer, stopTimer, contacts]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const timerTheme = (() => {
+    if (timerSeconds < 60) return { color: '#FF3B30', glow: '#FF3B3033' };
+    if (timerSeconds < 300) return { color: '#FFCC00', glow: '#FFCC0033' };
+    return { color: '#34C759', glow: '#34C75933' };
+  })();
+
+  const riskCategory: RiskCategory = (riskData?.risk_category as RiskCategory) ?? 'Unknown';
+  const riskValue = riskData?.risk_score ?? riskData?.risk_level;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={COLORS.primary}
-          />
-        }
-      >
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        
+        {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting},</Text>
-            <Text style={styles.userName}>{userName} 👋</Text>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={styles.greetingHeader}>SAFETY MODE ACTIVE</Text>
+            <Text style={styles.userNameHeader} numberOfLines={1}>{userName} 👋</Text>
           </View>
-          {/* Safety mode toggle pill */}
-          <View
-            style={[styles.modePill, isSafetyActive ? styles.modeActive : styles.modeInactive]}
-          >
-            <Ionicons
-              name={isSafetyActive ? 'shield-checkmark' : 'shield-outline'}
-              size={16}
-              color={isSafetyActive ? COLORS.success : COLORS.textMuted}
-            />
-            <Text
-              style={[
-                styles.modeText,
-                { color: isSafetyActive ? COLORS.success : COLORS.textMuted },
-              ]}
-              onPress={handleSafetyToggle}
-            >
-              {isSafetyActive ? 'Safety ON' : 'Safety OFF'}
+          <View style={[styles.modernSwitch, isSafetyActive ? styles.modernSwitchActive : styles.modernSwitchInactive]}>
+            <Text style={[styles.modernSwitchText, { color: isSafetyActive ? '#34C759' : '#8E8E93' }]}>
+              {isSafetyActive ? 'GUARD' : 'OFF'}
             </Text>
+            <Switch
+              trackColor={{ false: '#3a3a3c', true: '#34C759' }}
+              thumbColor={isSafetyActive ? '#ffffff' : '#f4f3f4'}
+              onValueChange={handleSafetyToggle}
+              value={isSafetyActive}
+            />
           </View>
         </View>
 
-        {/* ── Risk Badge ──────────────────────────────────────────────────── */}
-        <RiskLevelBadge category={riskCategory} score={riskData?.risk_level} />
+        <RiskLevelBadge category={riskCategory} score={riskValue} />
 
-        {/* ── Risk Factors ────────────────────────────────────────────────── */}
+        {/* ── NEXT-GEN TIMER BOX ── */}
+        {isSafetyActive && (
+          <View style={[styles.nextGenTimer, { borderColor: timerTheme.color }]}>
+            <View style={[styles.timerBackGlow, { backgroundColor: timerTheme.color }]} />
+            
+            <View style={styles.timerTopBar}>
+              <View style={[styles.timerDot, { backgroundColor: timerTheme.color }]} />
+              <Text style={[styles.timerLabel, { color: timerTheme.color }]}>WATCH-OVER-ME ACTIVE</Text>
+              <View style={[styles.timerDot, { backgroundColor: timerTheme.color }]} />
+            </View>
+            
+            <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateX: shakeAnim }], alignItems: 'center' }}>
+              <Text style={styles.nextGenTimeDisplay}>{formatTime(timerSeconds)}</Text>
+            </Animated.View>
+            
+            <View style={styles.timerDivider} />
+            
+            <Text style={styles.nextGenTimerDesc}>
+               If the timer expires, an automatic emergency broadcast will be sent to all your contacts.
+            </Text>
+            
+            <TouchableOpacity 
+               activeOpacity={0.8}
+               style={[styles.nextGenSafeBtn, { shadowColor: '#34C759' }]} 
+               onPress={() => handleSafetyToggle(false)}
+            >
+              <Ionicons name="shield-checkmark" size={20} color="white" />
+              <Text style={styles.nextGenSafeBtnText} adjustsFontSizeToFit numberOfLines={1}>
+                I'M SAFE - TERMINATE SESSION
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Risk Factors */}
         {riskData?.risk_factors?.length ? (
-          <View style={styles.factorsCard}>
+          <View style={styles.factorCardBox}>
             {riskData.risk_factors.map((f, i) => (
-              <View key={i} style={styles.factorRow}>
-                <Ionicons name="warning-outline" size={14} color={COLORS.warning} />
-                <Text style={styles.factorText}>{f}</Text>
+              <View key={i} style={styles.factorLine}>
+                <Ionicons name="alert-circle" size={14} color="#FFCC00" />
+                <Text style={styles.factorLineText}>{f}</Text>
               </View>
             ))}
           </View>
         ) : null}
 
-        {/* ── Location ────────────────────────────────────────────────────── */}
         <LocationDisplay address={location.address} isLoading={location.isLoading} />
 
-        {/* ── SOS BUTTON ──────────────────────────────────────────────────── */}
-        <SOSButton onSOSConfirmed={handleSOSConfirmed} isSending={isSendingSOS} />
+        <SOSButton onSOSConfirmed={() => handleSOSConfirmed(false)} isSending={isSendingSOS} />
 
-        <Text style={styles.sosHint}>
-          Hold the button for 3 seconds to trigger SOS
-        </Text>
+        <Text style={styles.sosSmallText}>Triple tap or hold for manual emergency SOS</Text>
 
-        {/* ── Quick Contacts ───────────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitleText}>Trusted Circles</Text>
           <QuickContactsBar contacts={contacts} onAddPress={() => setShowAddContact(true)} />
         </View>
       </ScrollView>
 
-      <AddContactModal
-        visible={showAddContact}
-        onClose={() => setShowAddContact(false)}
-        onSave={addContact}
-        currentCount={contacts.length}
-      />
+      <AddContactModal visible={showAddContact} onClose={() => setShowAddContact(false)} onSave={addContact} currentCount={contacts.length} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.background },
+  safe: { flex: 1, backgroundColor: '#000000' },
   scroll: { flex: 1 },
-  content: { paddingBottom: SPACING.xxl },
+  content: { paddingBottom: 60 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.lg,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    marginBottom: 24,
   },
-  greeting: { color: COLORS.textSecondary, fontSize: 14 },
-  userName: { color: COLORS.textPrimary, fontSize: 22, fontWeight: '800', marginTop: 2 },
-  modePill: {
+  greetingHeader: { color: '#8E8E93', fontSize: 11, fontWeight: '800', letterSpacing: 2 },
+  userNameHeader: { color: 'white', fontSize: 26, fontWeight: '900', marginTop: 4 },
+  modernSwitch: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 12,
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 4,
+    borderRadius: 30,
+    borderWidth: 1.5,
+    height: 50,
+  },
+  modernSwitchActive: { backgroundColor: 'rgba(52, 199, 89, 0.05)', borderColor: '#34C759' },
+  modernSwitchInactive: { backgroundColor: '#1C1C1E', borderColor: '#3A3A3C' },
+  modernSwitchText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+
+  // NEXT-GEN TIMER BOX STYLES
+  nextGenTimer: {
+    backgroundColor: '#0A0A0A',
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 32,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  timerBackGlow: {
+    position: 'absolute',
+    top: -50,
+    width: '120%',
+    height: 100,
+    opacity: 0.1,
+    borderRadius: 100,
+  },
+  timerTopBar: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  timerDot: { width: 6, height: 6, borderRadius: 3 },
+  timerLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 2.5 },
+  nextGenTimeDisplay: { 
+     fontSize: 76, 
+     fontWeight: '900', 
+     color: 'white',
+     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+     letterSpacing: -4,
+     textShadowColor: 'rgba(255, 255, 255, 0.1)',
+     textShadowOffset: { width: 0, height: 0 },
+     textShadowRadius: 10,
+  },
+  timerDivider: { width: 40, height: 2, backgroundColor: '#3A3A3C', marginVertical: 16, borderRadius: 1 },
+  nextGenTimerDesc: { color: '#8E8E93', fontSize: 12, textAlign: 'center', marginBottom: 24, lineHeight: 18, paddingHorizontal: 10 },
+  nextGenSafeBtn: {
+    backgroundColor: '#34C759',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
+    paddingVertical: 20,
     borderRadius: 20,
-    borderWidth: 1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 15,
   },
-  modeActive: {
-    backgroundColor: 'rgba(34,197,94,0.1)',
-    borderColor: COLORS.success,
-  },
-  modeInactive: {
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
-  },
-  modeText: { fontSize: 12, fontWeight: '700' },
-  factorsCard: {
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    gap: SPACING.xs,
-  },
-  factorRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  factorText: { color: COLORS.textSecondary, fontSize: 13, flex: 1 },
-  sosHint: {
-    textAlign: 'center',
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginTop: SPACING.md,
-  },
-  section: { marginTop: SPACING.xl },
-  sectionTitle: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 16,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
+  nextGenSafeBtnText: { color: 'white', fontWeight: '900', fontSize: 12, letterSpacing: 1.2 },
+
+  factorCardBox: { marginHorizontal: 20, marginTop: 16, backgroundColor: '#1C1C1E', borderRadius: 20, padding: 18, gap: 10 },
+  factorLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  factorLineText: { color: '#E5E5EA', fontSize: 13, flex: 1 },
+  sosSmallText: { textAlign: 'center', color: '#8E8E93', fontSize: 12, marginTop: 24 },
+  sectionHeader: { marginTop: 40 },
+  sectionTitleText: { color: 'white', fontWeight: '900', fontSize: 20, paddingHorizontal: 20, marginBottom: 14 },
 });

@@ -90,8 +90,10 @@ export const HIGH_RISK_NOTIFICATION_THRESHOLD = 75;
 export const STORAGE_KEYS = {
   CONTACTS: '@veera/emergency_contacts',
   USER_NAME: '@veera/user_name',
+  USER_PHONE: '@veera/user_phone',
   AUTH_TOKEN: '@veera/auth_token',
   LAST_RISK_SCORE: '@veera/last_risk_score',
+  SOS_SENSITIVITY: '@veera/sos_sensitivity',
 };
 
 // ─── Backend API Endpoints ─────────────────────────────────────────────────────

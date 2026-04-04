@@ -2,11 +2,6 @@ import mongoose from 'mongoose';
 
 const sosEventSchema = new mongoose.Schema(
   {
-    user_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
     latitude: {
       type: Number,
       required: true,
@@ -15,25 +10,12 @@ const sosEventSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    risk_level: {
+    hour: {
       type: Number,
-      default: 0,
+      required: true,
       min: 0,
-      max: 1,
-    },
-    status: {
-      type: String,
-      enum: ['active', 'dispatched', 'resolved'],
-      default: 'active',
-    },
-    triggered_at: {
-      type: Date,
-      default: Date.now,
-    },
-    resolved_at: {
-      type: Date,
-      default: null,
-    },
+      max: 23,
+    }
   },
   { timestamps: true }
 );
