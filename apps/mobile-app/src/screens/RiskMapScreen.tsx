@@ -12,6 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 // Removed MapView for Procedural Radar UI (Higher Reliability & Premium Feel)
 import { Ionicons } from '@expo/vector-icons';
+import { 
+  PanGestureHandler, 
+  PanGestureHandlerGestureEvent,
+  GestureHandlerRootView 
+} from 'react-native-gesture-handler';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring 
+} from 'react-native-reanimated';
 import { useLocation } from '../hooks/useLocation';
 import { fetchRiskScore, fetchRiskMap } from '../services/api';
 import RiskLevelBadge from '../components/RiskLevelBadge';
@@ -41,6 +51,27 @@ export default function RiskMapScreen() {
   const [riskData, setRiskData] = useState<RiskScoreResponse | null>(null);
   const [riskGrid, setRiskGrid] = useState<RiskMapPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pan Gestures
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  const onGestureEvent = (event: PanGestureHandlerGestureEvent) => {
+    translateX.value = event.nativeEvent.translationX;
+    translateY.value = event.nativeEvent.translationY;
+  };
+
+  const onGestureEnd = () => {
+    // Optional: spring back to center or stay. 
+    // Let's stay moved for 'exploration' but allow reset via refresh.
+  };
+
+  const animatedRadarStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
 
   const riskCategory: RiskCategory = (riskData?.risk_category as RiskCategory) ?? 'Unknown';
 
@@ -101,51 +132,61 @@ export default function RiskMapScreen() {
       </View>
 
       {/* ─── Veera Safety Radar ─── */}
-      <View style={styles.radarWrapper}>
-        {/* Distance Rings */}
-        <View style={[styles.ring, { width: width * 1.5, height: width * 1.5, opacity: 0.05 }]} />
-        <View style={[styles.ring, { width: width * 1.1, height: width * 1.1, opacity: 0.1 }]} />
-        <View style={[styles.ring, { width: width * 0.7, height: width * 0.7, opacity: 0.15 }]} />
-        
-        {/* Radar Scanning Line Animation (Optional effect) */}
-        <View style={styles.radarCore}>
-           {/* Center Point (You) */}
-           <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '44' }]} />
-           <View style={[styles.userCore, { backgroundColor: RISK_STROKE_COLOR[riskCategory] }]} />
-           
-           {/* Risk Pips (The Grid) */}
-           {riskGrid.map((pt, idx) => {
-             const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
-             // Map GPS offset to relative UI positioning
-             // We use a sensitivity factor to spread them on the radar screen
-             const dx = (pt.longitude - (location.longitude || 0)) * 25000;
-             const dy = (pt.latitude - (location.latitude || 0)) * 25000;
-             
-             return (
-               <View 
-                  key={`pip-${idx}`} 
-                  style={[
-                    styles.riskPip, 
-                    { 
-                      transform: [{ translateX: dx }, { translateY: -dy }], // -dy because Y is down in UI
-                      backgroundColor: RISK_STROKE_COLOR[cat],
-                      shadowColor: RISK_STROKE_COLOR[cat],
-                    }
-                  ]} 
-               >
-                 <View style={[styles.pipGlow, { backgroundColor: RISK_STROKE_COLOR[cat] + '33' }]} />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <PanGestureHandler onGestureEvent={onGestureEvent} onEnded={onGestureEnd}>
+          <Animated.View style={[styles.radarWrapper, animatedRadarStyle]}>
+            {/* Distance Rings */}
+            <View style={[styles.ring, { width: width * 1.8, height: width * 1.8, opacity: 0.03 }]} />
+            <View style={[styles.ring, { width: width * 1.3, height: width * 1.3, opacity: 0.08 }]} />
+            <View style={[styles.ring, { width: width * 0.8, height: width * 0.8, opacity: 0.12 }]} />
+            
+            <View style={styles.radarCore}>
+               {/* Center Point (You) */}
+               <View style={[styles.userPulse, { backgroundColor: RISK_STROKE_COLOR[riskCategory] + '22' }]} />
+               <View style={[styles.userCore, { backgroundColor: '#fff', elevation: 15 }]}>
+                  <Ionicons name="navigate" size={12} color={RISK_STROKE_COLOR[riskCategory]} transform={[{ rotate: '45deg' }]} />
                </View>
-             );
-           })}
-        </View>
+               
+               {/* Risk Pips (The Grid) */}
+               {riskGrid.map((pt, idx) => {
+                 const cat = (pt.risk_category as RiskCategory) ?? 'Unknown';
+                 const dx = (pt.longitude - (location.longitude || 0)) * 28000;
+                 const dy = (pt.latitude - (location.latitude || 0)) * 28000;
+                 
+                 return (
+                   <View 
+                      key={`pip-${idx}`} 
+                      style={[
+                        styles.riskPip, 
+                        { 
+                          transform: [{ translateX: dx }, { translateY: -dy }], 
+                          backgroundColor: RISK_STROKE_COLOR[cat],
+                        }
+                      ]} 
+                   >
+                     <View style={[styles.pipGlow, { backgroundColor: RISK_STROKE_COLOR[cat] + '22' }]} />
+                   </View>
+                 );
+               })}
+            </View>
+          </Animated.View>
+        </PanGestureHandler>
 
-        {/* Legend */}
+        {/* Legend fixed outside pan */}
         <View style={styles.legendContainer}>
-          <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legTxt}>Extreme</Text></View>
+          <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legTxt}>Danger</Text></View>
           <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.legTxt}>Mid</Text></View>
           <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legTxt}>Safe</Text></View>
         </View>
-      </View>
+        
+        {/* Reset FAB if panned far */}
+        <TouchableOpacity 
+          style={styles.recenterRadar} 
+          onPress={() => { translateX.value = withSpring(0); translateY.value = withSpring(0); }}
+        >
+          <Ionicons name="locate" size={20} color="#fff" />
+        </TouchableOpacity>
+      </GestureHandlerRootView>
 
       {/* Bottom info card */}
       <View style={styles.infoCard}>
@@ -199,17 +240,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   userCore: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: '#fff',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
-  loadingText: {
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginTop: SPACING.md,
+  recenterRadar: {
+    position: 'absolute',
+    bottom: SPACING.xl * 2,
+    right: 20,
+    backgroundColor: COLORS.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 10,
   },
   userPulse: {
     position: 'absolute',
