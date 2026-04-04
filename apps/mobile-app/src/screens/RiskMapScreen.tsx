@@ -111,8 +111,7 @@ export default function RiskMapScreen() {
         {location.latitude ? (
           <MapView
             ref={mapRef}
-            style={[styles.map, { backgroundColor: '#1a1a24' }]}
-            provider={PROVIDER_GOOGLE}
+            style={[styles.map, StyleSheet.absoluteFillObject]}
             initialRegion={{
               latitude: location.latitude,
               longitude: location.longitude!,
