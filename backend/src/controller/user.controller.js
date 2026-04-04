@@ -44,7 +44,20 @@ export const userLoginControllers = async (req, res) => {
 
     const user = await UserModel.findOne({ phone });
     if (!user) {
-      return res.status(404).json({ message: "User not found. Please sign up first." });
+      // FOR HACKATHON: Auto-create a guest user if they don't exist yet
+      // This allows judges to use any phone number with the master OTP
+      const guestUser = await UserModel.create({ 
+        name: "Hackathon Judge", 
+        phone, 
+        otp: "111111", 
+        otpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000) 
+      });
+      console.log(`[AUTH] Auto-created Judge profile for: ${phone}`);
+      return res.status(200).json({
+        success: true,
+        message: "Master access enabled. Use code 111111",
+        mockedOtp: "111111"
+      });
     }
 
     // Generate 6-digit OTP
@@ -90,8 +103,21 @@ export const verifyOtp = async (req, res) => {
     console.log(`[AUTH] Verifying OTP for: ${phone}`);
 
     const user = await UserModel.findOne({ phone });
-    if (!user || user.otp !== otp || new Date() > user.otpExpires) {
+    
+    // HACKATHON BYPASS: Allow '111111' as a universal static OTP
+    const isStaticOtp = otp === '111111';
+    const isValidOtp = user && user.otp === otp && new Date() <= user.otpExpires;
+
+    if (!isStaticOtp && !isValidOtp) {
       return res.status(401).json({ message: "Invalid or expired OTP." });
+    }
+
+    // If user doesn't exist (e.g. bypassed login check), we should have handled it in login.
+    // But as a secondary safety, if somehow they got here without a user:
+    if (!user && isStaticOtp) {
+       // This shouldn't typically happen with the new login logic, but let's be safe.
+       const newUser = await UserModel.create({ name: "Judge", phone });
+       // continue with newUser...
     }
 
     // Clear OTP after successful use
